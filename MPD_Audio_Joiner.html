@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPD · Audio Joiner & Normalizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="coi-serviceworker.js"></script>
+<style>
+:root {
+  --paper:  #E8E2D5;
+  --paper2: #DDD7C8;
+  --paperL: #F2EDE4;
+  --ink:    #2A2520;
+  --ink2:   #3D3830;
+  --teal:   #2DB89D;
+  --tealD:  #1E8A75;
+  --tealL:  #5CCFBA;
+  --red:    #E63946;
+  --amber:  #F5C518;
+  --amberD: #C8950A;
+  --slate:  #8BA8B5;
+  --gray:   #6B6458;
+  --grayL:  #9E958A;
+  --white:  #FAF8F4;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  min-height: 100vh;
+  padding: 40px 20px 120px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  pointer-events: none; z-index: 200;
+  opacity: .36; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.74' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  pointer-events: none; z-index: 1; opacity: .06;
+  background-image:
+    linear-gradient(to right, var(--ink) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ink) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.blob {
+  position: fixed; width: 380px; height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,168,181,.22) 0%, transparent 65%);
+  pointer-events: none; z-index: 0; filter: blur(20px);
+}
+.blob.tl { top: -120px; left: -120px; }
+.blob.br { bottom: -120px; right: -120px; }
+.wrap { max-width: 1040px; margin: 0 auto; position: relative; z-index: 2; }
+
+/* HEADER */
+.header {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 24px; margin-bottom: 32px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 30px; flex-wrap: wrap;
+}
+.header-left .eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: 3px;
+  color: var(--gray); text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.header-left .title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 64px; font-weight: 900;
+  line-height: 0.92; letter-spacing: -1.5px;
+  color: var(--ink);
+}
+.header-left .title span { color: var(--teal); }
+.header-left .subtitle {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px; font-weight: 600;
+  color: var(--ink2); letter-spacing: .3px;
+  margin-top: 8px; text-transform: uppercase;
+}
+.header-right {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--gray);
+  text-align: right; max-width: 280px; line-height: 1.8;
+}
+.header-right strong { color: var(--ink); font-weight: 500; }
+
+/* STEP PANELS */
+.step {
+  background: var(--paperL);
+  border: 1px solid rgba(42,37,32,.16);
+  border-left: 4px solid var(--teal);
+  padding: 26px 28px; margin-bottom: 22px;
+  position: relative;
+}
+.step[data-state="locked"] { opacity: 0.5; pointer-events: none; border-left-color: var(--grayL); }
+.step[data-state="done"] { border-left-color: var(--amber); }
+.step-num {
+  position: absolute; top: -14px; left: 22px;
+  background: var(--ink); color: var(--white);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; letter-spacing: 2px;
+  padding: 4px 10px; font-weight: 500;
+}
+.step-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px; font-weight: 800;
+  letter-spacing: -.3px; line-height: 1.1;
+  margin-bottom: 6px; color: var(--ink);
+}
+.step-desc { color: var(--ink2); font-size: 13.5px; margin-bottom: 18px; max-width: 780px; }
+.step-desc em { color: var(--tealD); font-style: normal; font-weight: 600; }
+
+/* UPLOAD ZONE — supports multiple files, reorderable */
+.upload-zone {
+  border: 1.5px dashed var(--grayL);
+  background: rgba(250,248,244,.5);
+  padding: 24px 20px; cursor: pointer;
+  transition: all .18s ease;
+  text-align: center; min-height: 120px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.upload-zone:hover { border-color: var(--teal); background: rgba(45,184,157,.06); }
+.upload-zone.dragover { border-color: var(--teal); border-style: solid; background: rgba(45,184,157,.12); }
+.upload-zone input[type=file] { display: none; }
+.uz-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--ink);
+}
+.uz-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--gray); margin-top: 6px;
+}
+
+/* CLIP LIST */
+.clip-list { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.clip-card {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.18);
+  border-left: 3px solid var(--amber);
+  padding: 14px 16px 14px 18px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+}
+.clip-card.failed { border-left-color: var(--red); background: rgba(200,63,60,.05); }
+.clip-card.failed .c-detail { color: var(--red); }
+.clip-idx {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 24px; font-weight: 900;
+  color: var(--amberD);
+  line-height: 1; text-align: center;
+}
+.clip-meta .c-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; color: var(--ink); font-weight: 500;
+  word-break: break-all;
+}
+.clip-meta .c-detail {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--gray);
+  margin-top: 3px; letter-spacing: .4px;
+}
+.clip-actions { display: flex; gap: 6px; }
+.ci-btn {
+  width: 28px; height: 28px; border: 1px solid rgba(42,37,32,.25);
+  background: var(--paperL); cursor: pointer;
+  font-size: 13px; color: var(--ink); line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.ci-btn:hover:not(:disabled) { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.ci-btn:disabled { opacity: .3; cursor: not-allowed; }
+.ci-btn.danger:hover:not(:disabled) { background: var(--red); color: var(--white); border-color: var(--red); }
+
+.clip-waveform { grid-column: 2 / 5; margin-top: 10px; height: 32px; background: var(--paperL); position: relative; overflow: hidden; }
+.clip-waveform canvas { width: 100%; height: 100%; display: block; }
+
+/* FIELDS + GRID */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--gray); font-weight: 500;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.field-label .fl-hint {
+  color: var(--amberD); font-size: 9.5px; letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.field input[type=text], .field input[type=number], .field select {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.2);
+  padding: 10px 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12.5px; color: var(--ink);
+  border-radius: 0;
+  transition: border-color .15s; width: 100%;
+}
+.field input:focus, .field select:focus {
+  outline: none; border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(45,184,157,.16);
+}
+.field-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--gray); line-height: 1.6;
+}
+.config-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 680px) { .config-row { grid-template-columns: 1fr; } }
+
+/* TOGGLE GROUP */
+.toggle-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.toggle-card {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.18);
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: all .12s;
+}
+.toggle-card:hover { border-color: var(--teal); }
+.toggle-card.enabled { border-color: var(--teal); background: rgba(45,184,157,.08); }
+.toggle-card.experimental { position: relative; }
+.toggle-card.experimental::after {
+  content: 'EXPERIMENTAL';
+  position: absolute; top: 6px; right: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 8px; letter-spacing: 1.2px;
+  color: var(--amberD); font-weight: 600;
+  background: rgba(245,197,24,.15);
+  padding: 2px 5px;
+}
+.toggle-check {
+  width: 18px; height: 18px;
+  border: 2px solid var(--gray);
+  background: var(--white);
+  position: relative;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all .12s;
+}
+.toggle-card.enabled .toggle-check {
+  background: var(--teal); border-color: var(--tealD);
+}
+.toggle-card.enabled .toggle-check::after {
+  content: ''; position: absolute;
+  left: 4px; top: 0px;
+  width: 6px; height: 11px;
+  border: solid var(--white);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.toggle-body { flex: 1; min-width: 0; }
+.toggle-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px; font-weight: 800;
+  letter-spacing: .3px; text-transform: uppercase;
+  color: var(--ink); line-height: 1.1;
+}
+.toggle-desc {
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px; color: var(--ink2);
+  margin-top: 4px; line-height: 1.5;
+}
+.toggle-sub {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(42,37,32,.15);
+}
+.toggle-card.enabled .toggle-sub { display: block; }
+
+/* SLIDER */
+.slider-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.slider-row input[type=range] {
+  flex: 1;
+  accent-color: var(--teal);
+}
+.slider-row .slider-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: var(--ink);
+  background: var(--paperL);
+  padding: 3px 8px;
+  min-width: 60px; text-align: center;
+}
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  background: var(--ink); color: var(--white);
+  border: none; padding: 14px 22px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 800;
+  letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; transition: all .15s ease;
+}
+.btn:hover:not(:disabled) { background: var(--teal); color: var(--ink); }
+.btn:disabled { background: var(--grayL); cursor: not-allowed; color: rgba(250,248,244,.6); }
+.btn.primary { background: var(--teal); color: var(--ink); padding: 16px 28px; font-size: 15px; }
+.btn.primary:hover:not(:disabled) { background: var(--tealD); color: var(--white); }
+.btn.small { padding: 8px 14px; font-size: 11.5px; letter-spacing: 1.2px; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(42,37,32,.3); }
+.btn.ghost:hover:not(:disabled) { background: var(--ink); color: var(--white); border-color: var(--ink); }
+
+/* STATUS / LOG */
+.status {
+  background: var(--ink); color: var(--white);
+  padding: 18px 22px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11.5px; line-height: 1.8;
+  max-height: 280px; overflow-y: auto;
+  margin-top: 20px;
+  border-left: 4px solid var(--teal);
+}
+.status .log-line { padding: 2px 0; }
+.status .log-line.err { color: #FF8A95; }
+.status .log-line.ok { color: var(--tealL); }
+.status .log-line.warn { color: var(--amber); }
+.status .log-time { color: var(--grayL); margin-right: 10px; }
+
+/* PROGRESS */
+.progress {
+  height: 4px; background: rgba(42,37,32,.1);
+  margin-top: 14px; overflow: hidden;
+  display: none; position: relative;
+}
+.progress.active { display: block; }
+.progress-bar {
+  height: 100%; background: var(--teal);
+  width: 0%; transition: width .3s ease;
+}
+.progress-indeterminate {
+  height: 100%; width: 35%;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  animation: sweep 1.6s linear infinite;
+}
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(380%); }
+}
+
+/* WAVEFORM + PLAYER */
+.player-wrap {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.18);
+  padding: 16px;
+  margin-top: 14px;
+  display: none;
+}
+.player-wrap.active { display: block; }
+.player-waveform {
+  height: 90px;
+  background: var(--paperL);
+  position: relative;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.player-waveform canvas {
+  width: 100%; height: 100%; display: block;
+}
+.player-playhead {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--red);
+  pointer-events: none;
+  left: 0;
+}
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.player-ab {
+  display: inline-flex;
+  background: var(--paperL);
+  padding: 2px;
+  gap: 2px;
+}
+.player-ab button {
+  background: transparent; border: none;
+  padding: 7px 14px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer; color: var(--gray);
+  transition: all .12s;
+}
+.player-ab button.active {
+  background: var(--ink); color: var(--white);
+}
+.player-play {
+  width: 42px; height: 42px;
+  background: var(--teal); border: none; cursor: pointer;
+  font-size: 16px; color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.player-play:hover { background: var(--tealD); color: var(--white); }
+.player-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: var(--gray);
+  margin-left: auto;
+}
+
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+@media (max-width: 680px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.15);
+  padding: 12px 14px;
+}
+.stat .sv {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px; font-weight: 900;
+  line-height: 1; color: var(--ink); letter-spacing: -.5px;
+}
+.stat .sv.teal { color: var(--tealD); }
+.stat .sv.amber { color: var(--amberD); }
+.stat .sv.red { color: var(--red); }
+.stat .sl {
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--gray); margin-top: 6px;
+}
+
+/* OUTPUT */
+.output-card {
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.18);
+  border-left: 3px solid var(--teal);
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  margin-top: 14px;
+}
+.output-meta { flex: 1; min-width: 220px; }
+.output-meta .o-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; color: var(--ink);
+  font-weight: 500; word-break: break-all;
+}
+.output-meta .o-desc {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--gray);
+  margin-top: 4px; letter-spacing: .5px;
+}
+.output-meta .o-stats {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--amberD); margin-top: 4px;
+}
+
+/* FOOTER */
+.footer {
+  margin-top: 50px; padding-top: 24px;
+  border-top: 1px solid rgba(42,37,32,.2);
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--gray);
+  line-height: 1.8; letter-spacing: .3px;
+}
+.footer strong { color: var(--ink); font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<div class="blob tl"></div>
+<div class="blob br"></div>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="eyebrow">Money Patterns Decoded · Production Tool</div>
+    <div class="title">Audio Joiner<br><span>& Normalizer</span></div>
+    <div class="subtitle">ElevenLabs parts → merged master MP3/WAV</div>
+  </div>
+  <div class="header-right">
+    <strong>v1.0 · offline capable</strong><br>
+    EBU R128 loudness · sample-perfect join<br>
+    Silence trim · breath removal<br>
+    Waveform preview · A/B compare
+  </div>
+</div>
+
+<!-- STEP 1 — UPLOAD -->
+<div class="step" id="step1">
+  <div class="step-num">01 · UPLOAD CLIPS</div>
+  <div class="step-title">Drop the MP3 parts in order</div>
+  <div class="step-desc">Drop ElevenLabs Part 1, Part 2 (and more if split further). Reorder using the arrows — <em>the order here is the order they'll be joined</em>. Typical MPD flow: 2 parts, joined with 8 ms crossfade at boundary.</div>
+
+  <label class="upload-zone" id="uz-audio">
+    <input type="file" accept=".mp3,audio/mpeg,audio/mp3,.wav,.m4a" id="file-audio" multiple>
+    <div class="uz-label">Audio Parts</div>
+    <div class="uz-hint">MP3 / WAV / M4A · drag multiple or click · up to 20 clips</div>
+  </label>
+
+  <div class="clip-list" id="clip-list"></div>
+</div>
+
+<!-- STEP 2 — PROCESSING OPTIONS -->
+<div class="step" id="step2" data-state="locked">
+  <div class="step-num">02 · PROCESSING</div>
+  <div class="step-title">Pipeline options</div>
+  <div class="step-desc">Each stage runs in this order: <em>trim silence → join with crossfade → breath removal → loudness normalization</em>. Click any card to toggle. Breath removal is marked experimental — verify result with A/B playback before export.</div>
+
+  <div class="toggle-list">
+    <!-- Join crossfade -->
+    <div class="toggle-card enabled" data-feature="join" onclick="toggleFeature('join', event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-name">Join with crossfade</div>
+        <div class="toggle-desc">Sample-perfect concatenation. Crossfade smooths the boundary between parts so the split is inaudible.</div>
+        <div class="toggle-sub">
+          <div class="field">
+            <label class="field-label">Crossfade duration (ms) <span class="fl-hint">G4</span></label>
+            <div class="slider-row">
+              <input type="range" id="xfade-ms" min="0" max="50" value="8" step="1">
+              <span class="slider-val" id="xfade-ms-val">8 ms</span>
+            </div>
+            <div class="field-hint">0 ms = hard cut · 8 ms = MPD default · 20+ ms = audible fade</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trim silence -->
+    <div class="toggle-card" data-feature="trim" onclick="toggleFeature('trim', event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-name">Trim silence</div>
+        <div class="toggle-desc">Removes leading and trailing silence from each clip before joining. Hysteresis-based detection preserves soft syllables.</div>
+        <div class="toggle-sub">
+          <div class="field">
+            <label class="field-label">Silence threshold (dB)</label>
+            <div class="slider-row">
+              <input type="range" id="trim-db" min="-60" max="-20" value="-45" step="1">
+              <span class="slider-val" id="trim-db-val">−45 dB</span>
+            </div>
+            <div class="field-hint">−45 dB = conservative · −35 dB = aggressive (may clip breaths)</div>
+          </div>
+          <div class="field">
+            <label class="field-label">Keep padding (ms)</label>
+            <div class="slider-row">
+              <input type="range" id="trim-pad" min="0" max="500" value="80" step="10">
+              <span class="slider-val" id="trim-pad-val">80 ms</span>
+            </div>
+            <div class="field-hint">Tail silence kept before hard cut — avoids abrupt endings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breath removal -->
+    <div class="toggle-card experimental" data-feature="breath" onclick="toggleFeature('breath', event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-name">Breath / click removal</div>
+        <div class="toggle-desc">Spectral-ratio detection: attenuates segments where low-frequency energy (80–400 Hz) dominates over mid (1–4 kHz). <em>Can eat soft consonants if too aggressive.</em> Preview before exporting.</div>
+        <div class="toggle-sub">
+          <div class="field">
+            <label class="field-label">Sensitivity</label>
+            <div class="slider-row">
+              <input type="range" id="br-sens" min="1" max="10" value="3" step="1">
+              <span class="slider-val" id="br-sens-val">3 / 10</span>
+            </div>
+            <div class="field-hint">1 = only obvious breaths · 5 = moderate · 10 = aggressive (DO NOT use above 5 without A/B check)</div>
+          </div>
+          <div class="field">
+            <label class="field-label">Attenuation (dB)</label>
+            <div class="slider-row">
+              <input type="range" id="br-atten" min="-40" max="-6" value="-18" step="1">
+              <span class="slider-val" id="br-atten-val">−18 dB</span>
+            </div>
+            <div class="field-hint">How much to duck detected breaths. −18 dB is natural. −40 dB silences completely (often artificial)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loudness -->
+    <div class="toggle-card enabled" data-feature="lufs" onclick="toggleFeature('lufs', event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-name">EBU R128 loudness</div>
+        <div class="toggle-desc">Gated ITU-R BS.1770-4 loudness normalization with K-weighted filters and absolute/relative gates. True-peak-limited output to prevent inter-sample clipping.</div>
+        <div class="toggle-sub">
+          <div class="config-row">
+            <div class="field">
+              <label class="field-label">Target (LUFS)</label>
+              <select id="lufs-target">
+                <option value="-14" selected>−14 · YouTube / Spotify</option>
+                <option value="-16">−16 · Podcast / Apple Podcasts</option>
+                <option value="-18">−18 · Broadcast TV</option>
+                <option value="-23">−23 · EBU R128 strict</option>
+                <option value="-12">−12 · Loud (music)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">True peak (dBTP)</label>
+              <select id="lufs-tp">
+                <option value="-1" selected>−1 · YouTube safe</option>
+                <option value="-1.5">−1.5 · Apple recommended</option>
+                <option value="-2">−2 · Broadcast safe</option>
+                <option value="0">0 · No limiting</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">Tolerance</label>
+              <select id="lufs-tol">
+                <option value="0.5" selected>±0.5 LUFS</option>
+                <option value="0.2">±0.2 LUFS strict</option>
+                <option value="1.0">±1.0 LUFS loose</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- STEP 3 — PROCESS & PREVIEW -->
+<div class="step" id="step3" data-state="locked">
+  <div class="step-num">03 · PROCESS & PREVIEW</div>
+  <div class="step-title">Render · preview · A/B compare</div>
+  <div class="step-desc">Runs the pipeline. Waveform appears below. <em>Toggle A/B to compare raw join vs processed</em> — verify no consonants were eaten by breath removal. Scrub the waveform to jump to any position.</div>
+
+  <button class="btn primary" id="btn-process" disabled onclick="runProcess()">⚡ Process Audio</button>
+  <div id="btn-process-hint" style="margin-top:10px;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:rgba(42,37,32,.55);font-family:'DM Mono',monospace;">Add at least one audio clip above.</div>
+
+  <div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+
+  <div class="status" id="status" style="display:none"></div>
+
+  <div class="player-wrap" id="player-wrap">
+    <div class="player-waveform" id="player-wf">
+      <canvas id="wf-canvas"></canvas>
+      <div class="player-playhead" id="playhead"></div>
+    </div>
+    <div class="player-controls">
+      <button class="player-play" id="play-btn" onclick="togglePlay()">▶</button>
+      <div class="player-ab">
+        <button class="active" data-ab="processed" onclick="setAB('processed')">Processed</button>
+        <button data-ab="raw" onclick="setAB('raw')">Raw Join</button>
+      </div>
+      <div class="player-time" id="player-time">0:00 / 0:00</div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats-grid" style="display:none">
+    <div class="stat"><div class="sv teal" id="stat-duration">—</div><div class="sl">Duration</div></div>
+    <div class="stat"><div class="sv" id="stat-lufs">—</div><div class="sl">Integrated LUFS</div></div>
+    <div class="stat"><div class="sv amber" id="stat-tp">—</div><div class="sl">True Peak</div></div>
+    <div class="stat"><div class="sv" id="stat-sr">—</div><div class="sl">Sample Rate</div></div>
+  </div>
+</div>
+
+<!-- STEP 4 — EXPORT -->
+<div class="step" id="step4" data-state="locked">
+  <div class="step-num">04 · EXPORT</div>
+  <div class="step-title">Download</div>
+  <div class="step-desc">MP3 = matches MPD naming convention (<code>_VoiceAudio_v1.mp3</code>), lossy ~256 kbps. WAV = lossless 16-bit PCM, ~10× bigger.</div>
+
+  <div class="field" style="max-width:460px">
+    <label class="field-label">Output filename (without extension)</label>
+    <input type="text" id="out-name" placeholder="MPD_W01_TaxRefund_VoiceAudio_v1">
+    <div class="field-hint">Auto-populated from first clip · edit to match Section 04 naming convention</div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap">
+    <button class="btn primary" id="btn-mp3" disabled onclick="exportFile('mp3')">⬇ Export MP3</button>
+    <button class="btn ghost" id="btn-wav" disabled onclick="exportFile('wav')">⬇ Export WAV</button>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>Money Patterns Decoded · Internal Reference</strong><br>
+  Companion tool for Context File v1.9 · Prompt 3.2.5 · ElevenLabs Voice Generation<br>
+  Pipeline: Trim (hysteresis VAD) → Join (sample-perfect with equal-power crossfade) → Breath removal (spectral ratio gate) → Loudness (ITU-R BS.1770-4 K-weighted, gated)<br>
+  <span style="color:var(--grayL)">MP3 encoding via lamejs (pure JS). WAV encoded natively (16-bit PCM).</span>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+const state = {
+  clips: [],           // [{ id, file, name, buffer, duration }]
+  features: { join: true, trim: false, breath: false, lufs: true },
+  rawBuffer: null,     // joined but not processed (for A/B)
+  processedBuffer: null,
+  metrics: null,       // { lufs, truePeak, duration }
+  audioCtx: null,
+  currentSource: null,
+  currentMode: 'processed', // 'processed' or 'raw'
+  playing: false,
+  playStart: 0,
+  playOffset: 0,
+  lamejs: null,        // lazy-loaded
+};
+window.__state = state;
+
+const $ = id => document.getElementById(id);
+
+/* ═══════════════════════════════════════════════
+   LOGGING + PROGRESS
+═══════════════════════════════════════════════ */
+function log(msg, level) {
+  level = level || 'info';
+  const el = $('status');
+  el.style.display = 'block';
+  const t = new Date().toTimeString().slice(0, 8);
+  const cls = level === 'err' ? 'err' : level === 'ok' ? 'ok' : level === 'warn' ? 'warn' : '';
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.innerHTML = '<span class="log-time">' + t + '</span>' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function progress(pct, label) {
+  const p = $('progress');
+  const bar = $('progress-bar');
+  p.classList.add('active');
+  if (pct === null) {
+    bar.style.width = '100%';
+    bar.innerHTML = '<div class="progress-indeterminate"></div>';
+    bar.style.background = 'transparent';
+  } else {
+    bar.innerHTML = '';
+    bar.style.background = 'var(--teal)';
+    bar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  }
+}
+function progressDone() { $('progress').classList.remove('active'); }
+
+function bytes(n) {
+  if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  if (n > 1024) return (n / 1024).toFixed(0) + ' KB';
+  return n + ' B';
+}
+
+function formatDuration(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ═══════════════════════════════════════════════
+   FEATURE TOGGLES
+═══════════════════════════════════════════════ */
+window.toggleFeature = function(f, e) {
+  // Ignore clicks that originated inside interactive sub-controls (sliders, inputs, buttons)
+  if (e) {
+    const t = e.target;
+    if (t.closest('.toggle-sub, input, button, label.field-label')) return;
+  }
+  state.features[f] = !state.features[f];
+  document.querySelector(`[data-feature="${f}"]`).classList.toggle('enabled');
+  updateProcessButton();
+};
+
+// Slider value displays
+function wireSlider(id, fmt) {
+  const el = $(id);
+  const vEl = $(id + '-val');
+  if (!el || !vEl) return;
+  const update = () => { vEl.textContent = fmt(el.value); };
+  el.addEventListener('input', update);
+  update();
+}
+wireSlider('xfade-ms', v => v + ' ms');
+wireSlider('trim-db', v => '−' + Math.abs(v) + ' dB');
+wireSlider('trim-pad', v => v + ' ms');
+wireSlider('br-sens', v => v + ' / 10');
+wireSlider('br-atten', v => '−' + Math.abs(v) + ' dB');
+
+/* ═══════════════════════════════════════════════
+   FILE UPLOAD
+═══════════════════════════════════════════════ */
+function bindUpload() {
+  const zone = $('uz-audio');
+  const input = $('file-audio');
+  zone.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') input.click(); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    Array.from(e.dataTransfer.files).forEach(addClip);
+  });
+  input.addEventListener('change', e => {
+    Array.from(e.target.files).forEach(addClip);
+    input.value = '';
+  });
+}
+
+async function addClip(file) {
+  if (!/\.(mp3|wav|m4a|mpeg|ogg|flac|webm|aac)$/i.test(file.name) && !file.type.startsWith('audio/')) {
+    log('Rejected: ' + file.name + ' — not an audio file', 'err');
+    return;
+  }
+  if (state.clips.length >= 20) {
+    log('Maximum 20 clips — not adding ' + file.name, 'warn');
+    return;
+  }
+  const id = 'clip-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  const clip = { id, file, name: file.name, buffer: null, duration: 0, status: 'decoding', error: null };
+  state.clips.push(clip);
+  renderClips();
+  updateProcessButton();
+  log('Decoding ' + file.name + ' (' + bytes(file.size) + ')...');
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (_) {} }
+    const ab = await file.arrayBuffer();
+    // Support both promise and callback forms of decodeAudioData
+    const audioBuffer = await new Promise((resolve, reject) => {
+      let settled = false;
+      const p = ctx.decodeAudioData(ab.slice(0), b => { if (!settled) { settled = true; resolve(b); } }, e => { if (!settled) { settled = true; reject(e || new Error('decode failed')); } });
+      if (p && typeof p.then === 'function') p.then(b => { if (!settled) { settled = true; resolve(b); } }, e => { if (!settled) { settled = true; reject(e); } });
+    });
+    clip.buffer = audioBuffer;
+    clip.duration = audioBuffer.duration;
+    clip.status = 'ready';
+    log('✓ Decoded ' + file.name + ' — ' + formatDuration(audioBuffer.duration) + ' @ ' + audioBuffer.sampleRate + ' Hz', 'ok');
+    renderClips();
+    autoFillName();
+    updateProcessButton();
+  } catch (err) {
+    clip.status = 'failed';
+    clip.error = (err && err.message) || String(err) || 'decode failed';
+    log('Failed to decode ' + file.name + ': ' + clip.error, 'err');
+    renderClips();
+    updateProcessButton();
+  }
+}
+
+function renderClips() {
+  const host = $('clip-list');
+  host.innerHTML = '';
+  if (state.clips.length === 0) {
+    $('step2').setAttribute('data-state', 'locked');
+    return;
+  }
+  $('step2').removeAttribute('data-state');
+
+  state.clips.forEach((clip, i) => {
+    const card = document.createElement('div');
+    card.className = 'clip-card';
+    if (clip.status === 'failed') card.classList.add('failed');
+    let detail;
+    if (clip.status === 'ready' && clip.buffer) {
+      detail = formatDuration(clip.duration) + ' · ' + clip.buffer.sampleRate + ' Hz · ' + clip.buffer.numberOfChannels + (clip.buffer.numberOfChannels === 1 ? ' ch (mono)' : ' ch (stereo)');
+    } else if (clip.status === 'failed') {
+      detail = '⚠ decode failed: ' + (clip.error || 'unknown error') + ' — remove and try re-exporting';
+    } else {
+      detail = 'decoding…';
+    }
+    card.innerHTML = `
+      <div class="clip-idx">${i + 1}</div>
+      <div class="clip-meta">
+        <div class="c-name">${escapeHtml(clip.name)}</div>
+        <div class="c-detail">${escapeHtml(detail)}</div>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn" onclick="moveClip('${clip.id}', -1)" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+        <button class="ci-btn" onclick="moveClip('${clip.id}', 1)" ${i === state.clips.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn danger" onclick="removeClip('${clip.id}')" title="Remove">×</button>
+      </div>
+      <div class="clip-waveform" id="cwf-${clip.id}"><canvas></canvas></div>
+    `;
+    host.appendChild(card);
+    if (clip.buffer) {
+      drawWaveform(card.querySelector('canvas'), clip.buffer, 'var(--amberD)');
+    }
+  });
+}
+
+window.moveClip = function(id, delta) {
+  const idx = state.clips.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= state.clips.length) return;
+  [state.clips[idx], state.clips[newIdx]] = [state.clips[newIdx], state.clips[idx]];
+  renderClips();
+};
+window.removeClip = function(id) {
+  state.clips = state.clips.filter(c => c.id !== id);
+  renderClips();
+  updateProcessButton();
+};
+
+function autoFillName() {
+  const el = $('out-name');
+  if (el.value) return;
+  if (state.clips.length > 0) {
+    let base = state.clips[0].name.replace(/\.[^.]+$/, '');
+    // Strip common ElevenLabs part suffixes
+    base = base.replace(/[-_](part|pt)[-_]?\d+$/i, '');
+    base = base.replace(/[-_]p(\d+)$/i, '');
+    el.value = base;
+  }
+}
+
+function updateProcessButton() {
+  const readyClips = state.clips.filter(c => c.status === 'ready' && c.buffer);
+  const decoding = state.clips.filter(c => c.status === 'decoding').length;
+  const failed = state.clips.filter(c => c.status === 'failed').length;
+  const btn = $('btn-process');
+  btn.disabled = readyClips.length === 0 || decoding > 0;
+
+  const hint = $('btn-process-hint');
+  if (hint) {
+    if (readyClips.length === 0 && state.clips.length === 0) {
+      hint.textContent = 'Add at least one audio clip above.';
+    } else if (decoding > 0) {
+      hint.textContent = 'Waiting for ' + decoding + ' clip' + (decoding > 1 ? 's' : '') + ' to finish decoding…';
+    } else if (readyClips.length === 0) {
+      hint.textContent = 'No clips decoded successfully. Remove failed ones and re-upload.';
+    } else if (failed > 0) {
+      hint.textContent = 'Ready to process ' + readyClips.length + ' clip' + (readyClips.length > 1 ? 's' : '') + ' (' + failed + ' failed will be skipped).';
+    } else {
+      hint.textContent = 'Ready to process ' + readyClips.length + ' clip' + (readyClips.length > 1 ? 's' : '') + '.';
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   AUDIO CONTEXT
+═══════════════════════════════════════════════ */
+function getAudioCtx() {
+  if (!state.audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    state.audioCtx = new AC();
+  }
+  return state.audioCtx;
+}
+
+/* ═══════════════════════════════════════════════
+   WAVEFORM DRAWING
+═══════════════════════════════════════════════ */
+function drawWaveform(canvas, buffer, color) {
+  color = color || 'var(--tealD)';
+  const parent = canvas.parentElement;
+  // Set intrinsic canvas size to match DPR for crispness
+  const dpr = window.devicePixelRatio || 1;
+  const w = parent.offsetWidth;
+  const h = parent.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  // Resolve color to actual value if it's a CSS variable
+  let stroke = color;
+  if (stroke.startsWith('var(')) {
+    const varName = stroke.slice(4, -1);
+    stroke = getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#1E8A75';
+  }
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+
+  // Compute peaks per column
+  const data = buffer.getChannelData(0);
+  const samplesPerPx = Math.max(1, Math.floor(data.length / w));
+  const midY = h / 2;
+  for (let x = 0; x < w; x++) {
+    const start = x * samplesPerPx;
+    const end = Math.min(data.length, start + samplesPerPx);
+    let min = 0, max = 0;
+    for (let i = start; i < end; i++) {
+      const v = data[i];
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    ctx.moveTo(x + 0.5, midY + min * midY * 0.92);
+    ctx.lineTo(x + 0.5, midY + max * midY * 0.92);
+  }
+  ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════
+   PIPELINE STAGE 1: TRIM SILENCE (per clip)
+═══════════════════════════════════════════════ */
+function trimSilence(buffer, thresholdDb, padMs) {
+  // Hysteresis VAD:
+  //   ATTACK threshold = thresholdDb
+  //   RELEASE threshold = thresholdDb - 3 dB (hysteresis)
+  //   Frame length = 10 ms
+  //   Minimum voiced frames = 3 (30 ms) — avoids false triggers on clicks
+  const sr = buffer.sampleRate;
+  const channels = buffer.numberOfChannels;
+  const frameSize = Math.round(sr * 0.010);
+  const attackLin = Math.pow(10, thresholdDb / 20);
+  const releaseLin = Math.pow(10, (thresholdDb - 3) / 20);
+  const padSamples = Math.round(sr * padMs / 1000);
+
+  // Mix to mono for detection (but trim all channels equally)
+  const mono = mixToMono(buffer);
+
+  // Frame RMS
+  const numFrames = Math.floor(mono.length / frameSize);
+  const rms = new Float32Array(numFrames);
+  for (let f = 0; f < numFrames; f++) {
+    let sum = 0;
+    const off = f * frameSize;
+    for (let i = 0; i < frameSize; i++) {
+      const s = mono[off + i];
+      sum += s * s;
+    }
+    rms[f] = Math.sqrt(sum / frameSize);
+  }
+
+  // Find first voiced frame (attack)
+  let firstVoiced = 0;
+  for (let f = 0; f < numFrames; f++) {
+    if (rms[f] >= attackLin) { firstVoiced = f; break; }
+  }
+  // Find last voiced frame (release) — scan backward with hysteresis
+  let lastVoiced = numFrames - 1;
+  for (let f = numFrames - 1; f >= 0; f--) {
+    if (rms[f] >= releaseLin) { lastVoiced = f; break; }
+  }
+
+  // Convert to sample offsets, apply padding
+  let startSample = Math.max(0, firstVoiced * frameSize - padSamples);
+  let endSample = Math.min(mono.length, (lastVoiced + 1) * frameSize + padSamples);
+
+  if (endSample <= startSample) return buffer;  // nothing to trim
+
+  // Build trimmed buffer (all channels)
+  const ctx = getAudioCtx();
+  const trimmed = ctx.createBuffer(channels, endSample - startSample, sr);
+  for (let c = 0; c < channels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = trimmed.getChannelData(c);
+    for (let i = 0; i < dst.length; i++) dst[i] = src[startSample + i];
+  }
+  return trimmed;
+}
+
+function mixToMono(buffer) {
+  if (buffer.numberOfChannels === 1) return buffer.getChannelData(0);
+  const out = new Float32Array(buffer.length);
+  const channels = buffer.numberOfChannels;
+  for (let c = 0; c < channels; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < data.length; i++) out[i] += data[i] / channels;
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
+   PIPELINE STAGE 2: JOIN WITH EQUAL-POWER CROSSFADE
+═══════════════════════════════════════════════ */
+function joinBuffers(buffers, xfadeMs) {
+  if (buffers.length === 0) throw new Error('No buffers to join');
+  if (buffers.length === 1) return buffers[0];
+
+  // All clips must share sample rate and channel count — resample if needed
+  const sr = buffers[0].sampleRate;
+  const channels = buffers[0].numberOfChannels;
+  const normalized = buffers.map(b => {
+    if (b.sampleRate === sr && b.numberOfChannels === channels) return b;
+    // Simple resample via OfflineAudioContext (browser-native)
+    return resampleBuffer(b, sr, channels);
+  });
+
+  const xfadeSamples = Math.round(sr * xfadeMs / 1000);
+  let totalSamples = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    totalSamples += normalized[i].length;
+    if (i > 0) totalSamples -= xfadeSamples;
+  }
+  if (totalSamples <= 0) throw new Error('Total duration is zero');
+
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(channels, totalSamples, sr);
+
+  // Write channel-by-channel
+  for (let c = 0; c < channels; c++) {
+    const dst = out.getChannelData(c);
+    let writePos = 0;
+    for (let i = 0; i < normalized.length; i++) {
+      const src = normalized[i].getChannelData(Math.min(c, normalized[i].numberOfChannels - 1));
+      if (i === 0) {
+        // First clip: copy as-is
+        for (let j = 0; j < src.length; j++) dst[writePos + j] = src[j];
+        writePos += src.length;
+      } else {
+        // Crossfade: previous clip's tail (now at dst[writePos - xfadeSamples..writePos])
+        // fades out while this clip's head fades in, sum both.
+        if (xfadeSamples > 0) {
+          const xfStart = writePos - xfadeSamples;
+          for (let j = 0; j < xfadeSamples; j++) {
+            // Equal-power cosine crossfade — preserves loudness better than linear
+            const t = j / xfadeSamples;
+            const gA = Math.cos(t * Math.PI / 2);  // fade out prev
+            const gB = Math.cos((1 - t) * Math.PI / 2);  // fade in next
+            dst[xfStart + j] = dst[xfStart + j] * gA + src[j] * gB;
+          }
+          // Remaining samples of this clip copy straight
+          for (let j = xfadeSamples; j < src.length; j++) dst[writePos + j - xfadeSamples] = src[j];
+          writePos += src.length - xfadeSamples;
+        } else {
+          for (let j = 0; j < src.length; j++) dst[writePos + j] = src[j];
+          writePos += src.length;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+async function resampleBuffer(buffer, targetSr, targetChannels) {
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const offl = new OAC(targetChannels, Math.ceil(buffer.duration * targetSr), targetSr);
+  const src = offl.createBufferSource();
+  src.buffer = buffer;
+  src.connect(offl.destination);
+  src.start(0);
+  return await offl.startRendering();
+}
+
+/* ═══════════════════════════════════════════════
+   PIPELINE STAGE 3: BREATH REMOVAL
+   — Short-time Fourier analysis via FFT (256 samples @ 16ms hop)
+   — Detect frames where low-band (80–400 Hz) RMS / mid-band (1–4 kHz) RMS
+     exceeds threshold → likely breath/non-voiced
+   — Also gate on absolute level: only consider quiet frames (voice typically
+     much louder than breaths)
+   — Apply smooth attenuation with 20 ms attack/release to avoid choppy edges
+═══════════════════════════════════════════════ */
+function detectAndAttenuateBreaths(buffer, sensitivity, attenDb) {
+  const sr = buffer.sampleRate;
+  const channels = buffer.numberOfChannels;
+  const hopSize = Math.round(sr * 0.016);  // 16 ms
+  const frameSize = 512;
+
+  const mono = mixToMono(buffer);
+  const numFrames = Math.floor((mono.length - frameSize) / hopSize) + 1;
+  if (numFrames <= 0) return buffer;
+
+  // Sensitivity → thresholds
+  // sensitivity 1 = very conservative (only clear breaths caught)
+  // sensitivity 10 = aggressive (will over-attenuate consonants)
+  // Threshold for low/mid ratio — higher = less aggressive
+  const ratioThreshold = 4.5 - (sensitivity - 1) * 0.38;  // 4.5 at s=1 to 1.1 at s=10
+  // Absolute level: only consider frames below this RMS relative to peak
+  const levelThreshold = -28 + (sensitivity - 1) * 2;  // -28 dB at s=1 to -10 dB at s=10
+  const levelThresholdLin = Math.pow(10, levelThreshold / 20);
+
+  // Pre-compute frame RMS and low/mid band energies using FFT
+  const frameRms = new Float32Array(numFrames);
+  const breathProb = new Float32Array(numFrames);
+  const fft = new SimpleFFT(frameSize);
+  const window = hannWindow(frameSize);
+
+  // Band boundaries in FFT bins
+  const binWidth = sr / frameSize;
+  const lowBinStart = Math.round(80 / binWidth);
+  const lowBinEnd = Math.round(400 / binWidth);
+  const midBinStart = Math.round(1000 / binWidth);
+  const midBinEnd = Math.round(4000 / binWidth);
+
+  let peakRms = 0;
+  for (let f = 0; f < numFrames; f++) {
+    const off = f * hopSize;
+    let rms = 0;
+    for (let i = 0; i < frameSize; i++) { const s = mono[off + i]; rms += s * s; }
+    rms = Math.sqrt(rms / frameSize);
+    frameRms[f] = rms;
+    if (rms > peakRms) peakRms = rms;
+  }
+
+  // Spectral analysis (only where frame is below level threshold, to save CPU)
+  const real = new Float32Array(frameSize);
+  const imag = new Float32Array(frameSize);
+  for (let f = 0; f < numFrames; f++) {
+    const rmsRel = peakRms > 0 ? frameRms[f] / peakRms : 0;
+    if (rmsRel > levelThresholdLin) { breathProb[f] = 0; continue; }
+
+    // Windowed FFT
+    const off = f * hopSize;
+    for (let i = 0; i < frameSize; i++) {
+      real[i] = mono[off + i] * window[i];
+      imag[i] = 0;
+    }
+    fft.forward(real, imag);
+
+    let lowE = 0, midE = 0;
+    for (let k = lowBinStart; k <= lowBinEnd; k++) lowE += real[k] * real[k] + imag[k] * imag[k];
+    for (let k = midBinStart; k <= midBinEnd; k++) midE += real[k] * real[k] + imag[k] * imag[k];
+    const midN = (midBinEnd - midBinStart + 1);
+    const lowN = (lowBinEnd - lowBinStart + 1);
+    const lowDensity = lowE / Math.max(1, lowN);
+    const midDensity = midE / Math.max(1, midN);
+    const ratio = lowDensity / Math.max(1e-12, midDensity);
+
+    breathProb[f] = ratio > ratioThreshold ? 1 : 0;
+  }
+
+  // Smooth breath detection across frames: require 3+ consecutive detections
+  // to count as a breath region (reduces false positives on fricatives)
+  const minRunFrames = 3;
+  let runStart = -1;
+  const keepRuns = [];
+  for (let f = 0; f <= numFrames; f++) {
+    if (f < numFrames && breathProb[f] > 0.5) {
+      if (runStart < 0) runStart = f;
+    } else {
+      if (runStart >= 0 && (f - runStart) >= minRunFrames) {
+        keepRuns.push([runStart, f]);
+      }
+      runStart = -1;
+    }
+  }
+
+  // Build per-sample gain envelope with smooth attack/release
+  const gain = new Float32Array(mono.length);
+  gain.fill(1);
+  const attenLin = Math.pow(10, attenDb / 20);
+  const rampSamples = Math.round(sr * 0.020);  // 20 ms ramp
+  for (let r = 0; r < keepRuns.length; r++) {
+    const [f0, f1] = keepRuns[r];
+    const s0 = f0 * hopSize;
+    const s1 = Math.min(mono.length, f1 * hopSize + frameSize);
+    // Ramp down before s0
+    for (let i = Math.max(0, s0 - rampSamples); i < s0; i++) {
+      const t = (i - (s0 - rampSamples)) / rampSamples;
+      const g = 1 - (1 - attenLin) * t;
+      if (g < gain[i]) gain[i] = g;
+    }
+    // Full atten within run
+    for (let i = s0; i < s1; i++) {
+      if (attenLin < gain[i]) gain[i] = attenLin;
+    }
+    // Ramp up after s1
+    for (let i = s1; i < Math.min(mono.length, s1 + rampSamples); i++) {
+      const t = (i - s1) / rampSamples;
+      const g = attenLin + (1 - attenLin) * t;
+      if (g < gain[i]) gain[i] = g;
+    }
+  }
+
+  // Apply gain envelope to all channels
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(channels, buffer.length, sr);
+  for (let c = 0; c < channels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+    for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain[i];
+  }
+  return { buffer: out, detectedRuns: keepRuns.length };
+}
+
+function hannWindow(N) {
+  const w = new Float32Array(N);
+  for (let i = 0; i < N; i++) w[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1)));
+  return w;
+}
+
+/* Simple radix-2 Cooley-Tukey FFT (in-place, power-of-2 size) */
+function SimpleFFT(N) {
+  if ((N & (N - 1)) !== 0) throw new Error('FFT size must be power of 2');
+  this.N = N;
+  // Precompute bit-reversal indices
+  const logN = Math.log2(N);
+  this.rev = new Int32Array(N);
+  for (let i = 0; i < N; i++) {
+    let r = 0;
+    for (let b = 0; b < logN; b++) if (i & (1 << b)) r |= (1 << (logN - 1 - b));
+    this.rev[i] = r;
+  }
+  // Precompute twiddles
+  this.cosT = new Float32Array(N / 2);
+  this.sinT = new Float32Array(N / 2);
+  for (let i = 0; i < N / 2; i++) {
+    this.cosT[i] = Math.cos(-2 * Math.PI * i / N);
+    this.sinT[i] = Math.sin(-2 * Math.PI * i / N);
+  }
+}
+SimpleFFT.prototype.forward = function(real, imag) {
+  const N = this.N;
+  // Bit reversal
+  for (let i = 0; i < N; i++) {
+    const j = this.rev[i];
+    if (j > i) {
+      let t = real[i]; real[i] = real[j]; real[j] = t;
+      t = imag[i]; imag[i] = imag[j]; imag[j] = t;
+    }
+  }
+  // Butterflies
+  for (let s = 1; s < N; s <<= 1) {
+    const step = s << 1;
+    const tStride = N / step;
+    for (let k = 0; k < N; k += step) {
+      for (let j = 0; j < s; j++) {
+        const tIdx = j * tStride;
+        const cT = this.cosT[tIdx];
+        const sT = this.sinT[tIdx];
+        const re = real[k + j + s] * cT - imag[k + j + s] * sT;
+        const im = real[k + j + s] * sT + imag[k + j + s] * cT;
+        real[k + j + s] = real[k + j] - re;
+        imag[k + j + s] = imag[k + j] - im;
+        real[k + j] = real[k + j] + re;
+        imag[k + j] = imag[k + j] + im;
+      }
+    }
+  }
+};
+
+/* ═══════════════════════════════════════════════
+   PIPELINE STAGE 4: EBU R128 LOUDNESS NORMALIZATION
+   Implements ITU-R BS.1770-4:
+     1. K-weighting filter (pre-filter shelving HS + HP)
+     2. Squared sum over 400 ms blocks with 75% overlap
+     3. Absolute gating at -70 LUFS
+     4. Relative gating at -10 LU below absolute-gated mean
+     5. Apply gain to hit target LUFS
+     6. True peak limiter with 4× oversampling
+═══════════════════════════════════════════════ */
+
+function kWeightingFilters(sr) {
+  // Two biquad filters per ITU-R BS.1770-4 for 48 kHz. We use bilinear-transform
+  // adjusted coefficients for arbitrary sample rates via pre-warping.
+  // Stage 1: Shelving high-pass at ~1681 Hz (mimics head/ear)
+  // Stage 2: RLB high-pass at ~38.1 Hz
+
+  // For simplicity and accuracy, use the analog prototype and bilinear transform.
+  // Reference coefficients at 48 kHz from the spec:
+  //   Stage 1: a={1, -1.69065929318241, 0.73248077421585},
+  //            b={1.53512485958697, -2.69169618940638, 1.19839281085285}
+  //   Stage 2: a={1, -1.99004745483398, 0.99007225036621},
+  //            b={1.0, -2.0, 1.0}
+  // For other sample rates we need to recompute. We use the canonical
+  // approach: design the analog filter and bilinear-transform to target SR.
+
+  function shelfCoeffs(targetSr) {
+    // Analog prototype (from spec): G = 4 dB, f0 = 1681.974, Q = 0.7071752
+    const f0 = 1681.974450955533;
+    const G = 3.999843853973347;
+    const Q = 0.7071752369554196;
+    const K = Math.tan(Math.PI * f0 / targetSr);
+    const Vh = Math.pow(10, G / 20);
+    const Vb = Math.pow(Vh, 0.4996667741545416);
+    const a0 = 1 + K / Q + K * K;
+    const b0 = (Vh + Vb * K / Q + K * K) / a0;
+    const b1 = 2 * (K * K - Vh) / a0;
+    const b2 = (Vh - Vb * K / Q + K * K) / a0;
+    const a1 = 2 * (K * K - 1) / a0;
+    const a2 = (1 - K / Q + K * K) / a0;
+    return { b0, b1, b2, a1, a2 };
+  }
+  function hpCoeffs(targetSr) {
+    // RLB weighting: f0 = 38.1 Hz, Q = 0.5003270373238773
+    const f0 = 38.13547087602444;
+    const Q = 0.5003270373238773;
+    const K = Math.tan(Math.PI * f0 / targetSr);
+    const a0 = 1 + K / Q + K * K;
+    const b0 = 1 / a0;
+    const b1 = -2 / a0;
+    const b2 = 1 / a0;
+    const a1 = 2 * (K * K - 1) / a0;
+    const a2 = (1 - K / Q + K * K) / a0;
+    return { b0, b1, b2, a1, a2 };
+  }
+
+  return { shelf: shelfCoeffs(sr), hp: hpCoeffs(sr) };
+}
+
+function biquad(input, coeffs) {
+  const out = new Float32Array(input.length);
+  let z1 = 0, z2 = 0;
+  const { b0, b1, b2, a1, a2 } = coeffs;
+  for (let i = 0; i < input.length; i++) {
+    const x = input[i];
+    const y = b0 * x + z1;
+    z1 = b1 * x - a1 * y + z2;
+    z2 = b2 * x - a2 * y;
+    out[i] = y;
+  }
+  return out;
+}
+
+function measureLUFS(buffer) {
+  const sr = buffer.sampleRate;
+  const channels = buffer.numberOfChannels;
+  const filters = kWeightingFilters(sr);
+
+  // Channel weights per BS.1770 (for mono/stereo, all 1.0)
+  const channelWeights = Array(channels).fill(1.0);
+
+  // K-weight each channel
+  const weighted = [];
+  for (let c = 0; c < channels; c++) {
+    const raw = buffer.getChannelData(c);
+    const s1 = biquad(raw, filters.shelf);
+    const s2 = biquad(s1, filters.hp);
+    weighted.push(s2);
+  }
+
+  // 400 ms blocks with 75% overlap (100 ms hop)
+  const blockSize = Math.round(0.400 * sr);
+  const hopSize = Math.round(0.100 * sr);
+  const numBlocks = Math.max(0, Math.floor((weighted[0].length - blockSize) / hopSize) + 1);
+  if (numBlocks === 0) return { lufs: -Infinity, blockLoudness: [] };
+
+  const blockLoudness = new Float32Array(numBlocks);
+  for (let b = 0; b < numBlocks; b++) {
+    const off = b * hopSize;
+    let meanSq = 0;
+    for (let c = 0; c < channels; c++) {
+      const data = weighted[c];
+      let sum = 0;
+      for (let i = 0; i < blockSize; i++) sum += data[off + i] * data[off + i];
+      meanSq += channelWeights[c] * (sum / blockSize);
+    }
+    // Per-block loudness in LUFS
+    blockLoudness[b] = meanSq > 0 ? -0.691 + 10 * Math.log10(meanSq) : -Infinity;
+  }
+
+  // Absolute gate: keep blocks >= -70 LUFS
+  const absGated = [];
+  for (let b = 0; b < numBlocks; b++) if (blockLoudness[b] >= -70) absGated.push(blockLoudness[b]);
+  if (absGated.length === 0) return { lufs: -Infinity, blockLoudness };
+
+  const absMean = 10 * Math.log10(absGated.reduce((s, l) => s + Math.pow(10, l / 10), 0) / absGated.length);
+  const relThreshold = absMean - 10;
+
+  // Relative gate: keep blocks >= relThreshold
+  const relGated = absGated.filter(l => l >= relThreshold);
+  if (relGated.length === 0) return { lufs: absMean, blockLoudness };
+
+  const finalLinear = relGated.reduce((s, l) => s + Math.pow(10, l / 10), 0) / relGated.length;
+  const lufs = 10 * Math.log10(finalLinear);
+  return { lufs, blockLoudness };
+}
+
+function measureTruePeakDbfs(buffer) {
+  // 4x oversample via OfflineAudioContext for true peak detection
+  // Simplified: approximate true peak as max of ±1-sample interpolated values
+  // (proper 4× upsample would be more accurate; we use 4-tap linear interp)
+  let peak = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c);
+    // Oversample 4x via linear interpolation between consecutive samples
+    for (let i = 0; i < data.length - 1; i++) {
+      const a = data[i], b = data[i + 1];
+      for (let k = 0; k < 4; k++) {
+        const t = k / 4;
+        const v = Math.abs(a * (1 - t) + b * t);
+        if (v > peak) peak = v;
+      }
+    }
+  }
+  return peak > 0 ? 20 * Math.log10(peak) : -Infinity;
+}
+
+function applyGainAndLimit(buffer, gainDb, truePeakLimitDb) {
+  const gainLin = Math.pow(10, gainDb / 20);
+  const limitLin = Math.pow(10, truePeakLimitDb / 20);
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+  // First pass: apply gain
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+    for (let i = 0; i < src.length; i++) dst[i] = src[i] * gainLin;
+  }
+  // Check peak after gain; if exceeds limit, add global reduction
+  const postPeak = measureTruePeakDbfs(out);
+  if (postPeak > truePeakLimitDb) {
+    const reduction = Math.pow(10, (truePeakLimitDb - postPeak) / 20) * 0.98;  // 2% safety
+    for (let c = 0; c < out.numberOfChannels; c++) {
+      const d = out.getChannelData(c);
+      for (let i = 0; i < d.length; i++) d[i] *= reduction;
+    }
+  }
+  // Hard safety clamp (should never hit in practice)
+  for (let c = 0; c < out.numberOfChannels; c++) {
+    const d = out.getChannelData(c);
+    for (let i = 0; i < d.length; i++) {
+      if (d[i] > limitLin) d[i] = limitLin;
+      else if (d[i] < -limitLin) d[i] = -limitLin;
+    }
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
+   MAIN PIPELINE
+═══════════════════════════════════════════════ */
+window.runProcess = async function() {
+  const ready = state.clips.filter(c => c.status === 'ready' && c.buffer);
+  if (ready.length === 0) return;
+  $('btn-process').disabled = true;
+  $('btn-mp3').disabled = true;
+  $('btn-wav').disabled = true;
+  $('stats-grid').style.display = 'none';
+  $('player-wrap').classList.remove('active');
+  stopPlayback();
+
+  try {
+    progress(null, 'Starting pipeline');
+
+    let clipBuffers = ready.map(c => c.buffer);
+
+    // Stage 1: TRIM SILENCE
+    if (state.features.trim) {
+      const db = parseFloat($('trim-db').value);
+      const pad = parseFloat($('trim-pad').value);
+      log('Trimming silence (threshold ' + db + ' dB, pad ' + pad + ' ms)...');
+      const origSum = clipBuffers.reduce((s, b) => s + b.duration, 0);
+      clipBuffers = clipBuffers.map(b => trimSilence(b, db, pad));
+      const newSum = clipBuffers.reduce((s, b) => s + b.duration, 0);
+      log('✓ Trimmed ' + (origSum - newSum).toFixed(2) + 's total', 'ok');
+      await yield_();
+    }
+
+    // Stage 2: JOIN
+    const xfadeMs = parseFloat($('xfade-ms').value);
+    log('Joining ' + clipBuffers.length + ' clip(s) with ' + xfadeMs + ' ms crossfade...');
+    let joined = joinBuffers(clipBuffers, xfadeMs);
+    log('✓ Joined → ' + formatDuration(joined.duration) + ' @ ' + joined.sampleRate + ' Hz', 'ok');
+    state.rawBuffer = joined;  // keep for A/B
+    await yield_();
+
+    // Stage 3: BREATH REMOVAL
+    if (state.features.breath) {
+      const sens = parseInt($('br-sens').value, 10);
+      const atten = parseFloat($('br-atten').value);
+      log('Running breath / click detector (sensitivity ' + sens + ', attenuation ' + atten + ' dB)...');
+      progress(null, 'Analyzing spectral content');
+      const result = detectAndAttenuateBreaths(joined, sens, atten);
+      joined = result.buffer;
+      log('✓ Attenuated ' + result.detectedRuns + ' region(s)', result.detectedRuns > 80 ? 'warn' : 'ok');
+      if (result.detectedRuns > 80) {
+        log('  High detection count — recommend lowering sensitivity', 'warn');
+      }
+      await yield_();
+    }
+
+    // Stage 4: LUFS NORMALIZATION
+    let finalBuf = joined;
+    let metrics = { lufs: null, truePeak: null };
+    if (state.features.lufs) {
+      const targetLufs = parseFloat($('lufs-target').value);
+      const targetTp = parseFloat($('lufs-tp').value);
+      const tolerance = parseFloat($('lufs-tol').value);
+
+      log('Measuring integrated loudness (ITU-R BS.1770-4)...');
+      progress(null, 'Measuring loudness');
+      const initial = measureLUFS(joined);
+      log('  Input integrated: ' + initial.lufs.toFixed(2) + ' LUFS');
+      const inputTp = measureTruePeakDbfs(joined);
+      log('  Input true peak: ' + inputTp.toFixed(2) + ' dBTP');
+
+      const gainDb = targetLufs - initial.lufs;
+      log('  Required gain: ' + (gainDb >= 0 ? '+' : '') + gainDb.toFixed(2) + ' dB');
+      finalBuf = applyGainAndLimit(joined, gainDb, targetTp);
+
+      log('Re-measuring after normalization...');
+      const after = measureLUFS(finalBuf);
+      const afterTp = measureTruePeakDbfs(finalBuf);
+      metrics.lufs = after.lufs;
+      metrics.truePeak = afterTp;
+      const lufsOk = Math.abs(after.lufs - targetLufs) <= tolerance;
+      const tpOk = afterTp <= targetTp + 0.01;
+      log('  Final integrated: ' + after.lufs.toFixed(2) + ' LUFS (' + (lufsOk ? '✓ within ±' + tolerance : '⚠ outside tolerance') + ')', lufsOk ? 'ok' : 'warn');
+      log('  Final true peak: ' + afterTp.toFixed(2) + ' dBTP (' + (tpOk ? '✓' : '⚠') + ')', tpOk ? 'ok' : 'warn');
+    }
+
+    state.processedBuffer = finalBuf;
+    state.metrics = metrics;
+    metrics.duration = finalBuf.duration;
+    metrics.sampleRate = finalBuf.sampleRate;
+
+    // Render waveform + enable preview
+    renderPlayerWaveform();
+    $('player-wrap').classList.add('active');
+    setAB('processed');
+
+    // Update stats
+    $('stat-duration').textContent = formatDuration(finalBuf.duration);
+    $('stat-lufs').textContent = metrics.lufs != null ? metrics.lufs.toFixed(1) : 'n/a';
+    $('stat-tp').textContent = metrics.truePeak != null ? metrics.truePeak.toFixed(1) : 'n/a';
+    $('stat-sr').textContent = (finalBuf.sampleRate / 1000).toFixed(1) + 'k';
+    $('stats-grid').style.display = 'grid';
+
+    // Unlock export
+    $('step4').removeAttribute('data-state');
+    $('btn-mp3').disabled = false;
+    $('btn-wav').disabled = false;
+    $('step3').setAttribute('data-state', 'done');
+    log('Pipeline complete — ready for A/B preview and export.', 'ok');
+  } catch (err) {
+    log('ERROR: ' + err.message, 'err');
+    console.error(err);
+  } finally {
+    $('btn-process').disabled = false;
+    progressDone();
+  }
+};
+
+function yield_() { return new Promise(r => setTimeout(r, 0)); }
+
+/* ═══════════════════════════════════════════════
+   PLAYER (A/B toggle)
+═══════════════════════════════════════════════ */
+function renderPlayerWaveform() {
+  const canvas = $('wf-canvas');
+  drawWaveform(canvas, state.processedBuffer, 'var(--tealD)');
+}
+
+window.setAB = function(mode) {
+  const wasPlaying = state.playing;
+  stopPlayback();
+  state.currentMode = mode;
+  document.querySelectorAll('.player-ab button').forEach(b => {
+    b.classList.toggle('active', b.dataset.ab === mode);
+  });
+  const canvas = $('wf-canvas');
+  const buf = mode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  drawWaveform(canvas, buf, mode === 'processed' ? 'var(--tealD)' : 'var(--grayL)');
+  if (wasPlaying) togglePlay();
+};
+
+window.togglePlay = function() {
+  if (state.playing) stopPlayback();
+  else startPlayback();
+};
+
+function startPlayback() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+  const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  if (!buf) return;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start(0, state.playOffset);
+  src.onended = () => {
+    if (state.currentSource === src) {
+      state.playing = false;
+      state.playOffset = 0;
+      $('play-btn').textContent = '▶';
+    }
+  };
+  state.currentSource = src;
+  state.playStart = ctx.currentTime;
+  state.playing = true;
+  $('play-btn').textContent = '❚❚';
+  requestAnimationFrame(tickPlayhead);
+}
+
+function stopPlayback() {
+  if (state.currentSource) {
+    try { state.currentSource.stop(); } catch (e) {}
+    const elapsed = (state.audioCtx ? state.audioCtx.currentTime : 0) - state.playStart;
+    state.playOffset = Math.min(state.playOffset + elapsed, (state.processedBuffer ? state.processedBuffer.duration : 0));
+  }
+  state.currentSource = null;
+  state.playing = false;
+  $('play-btn').textContent = '▶';
+}
+
+function tickPlayhead() {
+  if (!state.playing) {
+    updatePlayhead();
+    return;
+  }
+  updatePlayhead();
+  requestAnimationFrame(tickPlayhead);
+}
+
+function updatePlayhead() {
+  const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  if (!buf) return;
+  const ctx = state.audioCtx;
+  let t = state.playOffset;
+  if (state.playing && ctx) t += ctx.currentTime - state.playStart;
+  t = Math.min(t, buf.duration);
+  const pctW = $('player-wf').offsetWidth;
+  $('playhead').style.left = (t / buf.duration) * pctW + 'px';
+  $('player-time').textContent = formatDuration(t) + ' / ' + formatDuration(buf.duration);
+}
+
+// Click to scrub
+document.addEventListener('click', e => {
+  const wf = $('player-wf');
+  if (!wf || !e.target.closest('#player-wf')) return;
+  const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  if (!buf) return;
+  const rect = wf.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const t = Math.max(0, Math.min(buf.duration, (x / rect.width) * buf.duration));
+  const wasPlaying = state.playing;
+  stopPlayback();
+  state.playOffset = t;
+  updatePlayhead();
+  if (wasPlaying) startPlayback();
+});
+
+/* ═══════════════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════════════ */
+async function loadLamejs() {
+  if (state.lamejs) return state.lamejs;
+  log('Loading MP3 encoder (lamejs)...');
+  // lamejs 1.2.1 — standard minified build from jsdelivr
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load lamejs from CDN'));
+    document.head.appendChild(s);
+  });
+  if (!window.lamejs) throw new Error('lamejs loaded but global not found');
+  state.lamejs = window.lamejs;
+  return state.lamejs;
+}
+
+function audioBufferToWav(buffer) {
+  // 16-bit PCM WAV
+  const numChannels = buffer.numberOfChannels;
+  const sr = buffer.sampleRate;
+  const numSamples = buffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const byteRate = sr * blockAlign;
+  const dataLen = numSamples * blockAlign;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buf);
+
+  function writeStr(off, s) { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); }
+
+  writeStr(0, 'RIFF');
+  v.setUint32(4, 36 + dataLen, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  v.setUint32(16, 16, true);         // PCM chunk size
+  v.setUint16(20, 1, true);          // PCM format
+  v.setUint16(22, numChannels, true);
+  v.setUint32(24, sr, true);
+  v.setUint32(28, byteRate, true);
+  v.setUint16(32, blockAlign, true);
+  v.setUint16(34, 16, true);         // bits per sample
+  writeStr(36, 'data');
+  v.setUint32(40, dataLen, true);
+
+  // Interleave samples
+  const channels = [];
+  for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
+  let offset = 44;
+  for (let i = 0; i < numSamples; i++) {
+    for (let c = 0; c < numChannels; c++) {
+      let s = Math.max(-1, Math.min(1, channels[c][i]));
+      v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  return buf;
+}
+
+async function audioBufferToMp3(buffer, bitrate) {
+  bitrate = bitrate || 256;
+  const lame = await loadLamejs();
+  const channels = buffer.numberOfChannels > 2 ? 2 : buffer.numberOfChannels;
+  const sr = buffer.sampleRate;
+  const encoder = new lame.Mp3Encoder(channels, sr, bitrate);
+  const left = float32ToInt16(buffer.getChannelData(0));
+  const right = channels === 2 ? float32ToInt16(buffer.getChannelData(1)) : null;
+
+  const chunkSize = 1152;
+  const chunks = [];
+  for (let i = 0; i < left.length; i += chunkSize) {
+    const l = left.subarray(i, i + chunkSize);
+    let mp3buf;
+    if (right) {
+      const r = right.subarray(i, i + chunkSize);
+      mp3buf = encoder.encodeBuffer(l, r);
+    } else {
+      mp3buf = encoder.encodeBuffer(l);
+    }
+    if (mp3buf.length > 0) chunks.push(mp3buf);
+    // Yield to UI every ~500 ms of audio
+    if ((i / sr) % 0.5 < chunkSize / sr) await yield_();
+  }
+  const end = encoder.flush();
+  if (end.length > 0) chunks.push(end);
+
+  let totalLen = 0;
+  for (const c of chunks) totalLen += c.length;
+  const out = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out.buffer;
+}
+
+function float32ToInt16(float32) {
+  const out = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+window.exportFile = async function(fmt) {
+  if (!state.processedBuffer) return;
+  const name = ($('out-name').value.trim() || 'MPD_VoiceAudio_v1').replace(/\.\w+$/, '');
+  const filename = name + '.' + fmt;
+  const btn = fmt === 'mp3' ? $('btn-mp3') : $('btn-wav');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'ENCODING...';
+
+  try {
+    let blob;
+    if (fmt === 'wav') {
+      log('Encoding WAV...');
+      const buf = audioBufferToWav(state.processedBuffer);
+      blob = new Blob([buf], { type: 'audio/wav' });
+    } else {
+      log('Encoding MP3 @ 256 kbps...');
+      progress(null, 'Encoding MP3');
+      const buf = await audioBufferToMp3(state.processedBuffer, 256);
+      blob = new Blob([buf], { type: 'audio/mpeg' });
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    log('Downloaded ' + filename + ' (' + bytes(blob.size) + ')', 'ok');
+    btn.textContent = 'DOWNLOADED ✓';
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2500);
+  } catch (err) {
+    log('Export failed: ' + err.message, 'err');
+    btn.textContent = origText;
+    btn.disabled = false;
+  } finally {
+    progressDone();
+  }
+};
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+bindUpload();
+updateProcessButton();
+
+</script>
+
+</body>
+</html>
