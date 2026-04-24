@@ -941,6 +941,13 @@ function updateProcessButton() {
   const btn = $('btn-process');
   btn.disabled = readyClips.length === 0 || decoding > 0;
 
+  // Unlock step 3 when at least one clip is ready; re-lock if none are ready
+  if (readyClips.length > 0 && decoding === 0) {
+    $('step3').removeAttribute('data-state');
+  } else if (readyClips.length === 0) {
+    $('step3').setAttribute('data-state', 'locked');
+  }
+
   const hint = $('btn-process-hint');
   if (hint) {
     if (readyClips.length === 0 && state.clips.length === 0) {
