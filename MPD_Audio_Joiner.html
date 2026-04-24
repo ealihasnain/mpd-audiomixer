@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0065)file:///C:/Users/ali.hasnain/Downloads/MPD_Audio_Joiner_v8_3.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MPD · Audio Joiner & Normalizer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="coi-serviceworker.js"></script>
+<title>MPD · Audio Joiner &amp; Normalizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./MPD_Audio_Joiner_files/css2" rel="stylesheet">
+<script src="./MPD_Audio_Joiner_files/coi-serviceworker.js"></script>
 <style>
 :root {
   --paper:  #E8E2D5;
@@ -222,19 +222,33 @@ body::after {
   display: grid; grid-template-columns: 1fr 1fr 1fr;
   gap: 14px;
 }
+@media (max-width: 900px) { .config-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 680px) { .config-row { grid-template-columns: 1fr; } }
+.toggle-sub .config-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.toggle-sub .field > select, .toggle-sub .field > input { min-width: 0; width: 100%; }
+/* Inside the new right-column layout, arrange fields in a light flex flow so
+   sliders/selects sit next to each other rather than stacking if there's room. */
+.toggle-sub > .field + .field { margin-top: 12px; }
 
 /* TOGGLE GROUP */
-.toggle-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
+/* Single-column stack: each feature is a full-width row */
+.toggle-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .toggle-card {
   background: var(--white);
   border: 1px solid rgba(42,37,32,.18);
-  padding: 14px 16px;
+  padding: 14px 18px;
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 22px minmax(240px, 320px) 1fr;
+  column-gap: 16px;
+  align-items: start;
   transition: all .12s;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  /* On narrow screens fall back to stacked card internals */
+  .toggle-card { grid-template-columns: 22px 1fr; }
+  .toggle-card .toggle-sub { grid-column: 1 / -1; }
 }
 .toggle-card:hover { border-color: var(--teal); }
 .toggle-card.enabled { border-color: var(--teal); background: rgba(45,184,157,.08); }
@@ -268,7 +282,39 @@ body::after {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-.toggle-body { flex: 1; min-width: 0; }
+.toggle-body { min-width: 0; overflow: hidden; }
+.reset-defaults-btn {
+  margin-top: 10px;
+  font-size: 10px; letter-spacing: 1px;
+  padding: 5px 12px;
+  color: var(--gray);
+  border-color: rgba(42,37,32,.2);
+}
+.reset-defaults-btn:hover { background: var(--paperL); color: var(--ink); }
+
+/* Global reset-all row at top of Step 2 */
+.reset-all-row {
+  display: flex; align-items: center; gap: 14px;
+  margin: 14px 0 18px;
+  padding: 10px 14px;
+  background: var(--paperL);
+  border-left: 3px solid var(--teal);
+}
+.reset-all-row .btn { margin: 0; flex-shrink: 0; }
+.reset-all-hint {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--gray); line-height: 1.4;
+}
+
+/* Stage number badge shown on each card — visual cue for execution order */
+.toggle-stage {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: var(--tealD);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
 .toggle-name {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 15px; font-weight: 800;
@@ -280,19 +326,62 @@ body::after {
   font-size: 12px; color: var(--ink2);
   margin-top: 4px; line-height: 1.5;
 }
+
+/* Controls column — hidden by default, shown when card enabled */
 .toggle-sub {
   display: none;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(42,37,32,.15);
+  padding-left: 0;
+  border-left: 1px dashed rgba(42,37,32,.15);
+  padding: 2px 0 2px 18px;
+  min-width: 0;
 }
 .toggle-card.enabled .toggle-sub { display: block; }
+/* When card disabled, hide the controls column entirely so left column can breathe */
+.toggle-card:not(.enabled) > .toggle-sub { visibility: hidden; }
 
 /* SLIDER */
-.slider-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.slider-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: nowrap; }
 .slider-row input[type=range] {
   flex: 1;
+  min-width: 0;
+  height: 18px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
   accent-color: var(--teal);
+  cursor: pointer;
+}
+/* WebKit track + thumb */
+.slider-row input[type=range]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(42,37,32,0.22);
+  border-radius: 2px;
+}
+.slider-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  background: var(--teal);
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  margin-top: -5px;                /* centres 14px thumb over 4px track */
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  cursor: pointer;
+}
+/* Firefox track + thumb */
+.slider-row input[type=range]::-moz-range-track {
+  height: 4px;
+  background: rgba(42,37,32,0.22);
+  border-radius: 2px;
+  border: none;
+}
+.slider-row input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--teal);
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  cursor: pointer;
 }
 .slider-row .slider-val {
   font-family: 'DM Mono', monospace;
@@ -300,6 +389,50 @@ body::after {
   background: var(--paperL);
   padding: 3px 8px;
   min-width: 60px; text-align: center;
+}
+/* Editable number companion to a range slider */
+.slider-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 11.5px; color: var(--ink);
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.22);
+  padding: 4px 5px;
+  width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+  -moz-appearance: textfield;
+}
+/* Compact variant for join/trim/breath/autolvl — much narrower than LUFS selects.
+   Scoped `.slider-row input.slider-num-sm` to out-specify `.field input[type=number]`
+   defined at line 204 (which otherwise forces width:100% and large padding). */
+.slider-row input.slider-num-sm {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--ink);
+  background: var(--white);
+  border: 1px solid rgba(42,37,32,.22);
+  padding: 3px 2px;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+  flex-grow: 0;
+  -moz-appearance: textfield;
+  border-radius: 0;
+}
+.slider-row input.slider-num-sm::-webkit-outer-spin-button,
+.slider-row input.slider-num-sm::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.slider-num::-webkit-outer-spin-button,
+.slider-num::-webkit-inner-spin-button,
+.slider-num-sm::-webkit-outer-spin-button,
+.slider-num-sm::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.slider-num:focus, .slider-num-sm:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px rgba(45,184,157,.16); }
+.slider-unit {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--gray);
+  flex-shrink: 0; white-space: nowrap;
 }
 
 /* BUTTONS */
@@ -362,39 +495,142 @@ body::after {
 .player-wrap {
   background: var(--white);
   border: 1px solid rgba(42,37,32,.18);
-  padding: 16px;
+  padding: 14px 16px;
   margin-top: 14px;
   display: none;
 }
 .player-wrap.active { display: block; }
+
+/* Legend */
+#wf-legend {
+  display: flex; gap: 18px; margin-bottom: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px; letter-spacing: .8px;
+  color: var(--gray); text-transform: uppercase; align-items: center;
+  flex-wrap: wrap;
+}
+.leg-item { display: flex; align-items: center; gap: 6px; }
+.leg-swatch { display: inline-block; border-radius: 0; flex-shrink: 0; }
+
+/* Zoom toolbar */
+#zoom-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px; color: var(--ink);
+}
+.zoom-label-prefix {
+  font-size: 9.5px; letter-spacing: 1.4px;
+  color: var(--gray); text-transform: uppercase; margin-right: 2px;
+}
+.zoom-btn {
+  width: 26px; height: 26px;
+  border: 1px solid rgba(42,37,32,.28);
+  background: var(--paperL); color: var(--ink);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .1s; flex-shrink: 0; line-height: 1;
+}
+.zoom-btn.zoom-reset {
+  width: auto; padding: 0 8px;
+  font-size: 10px; letter-spacing: 1px;
+}
+.zoom-btn:hover { background: var(--ink); color: var(--white); }
+#zoom-label {
+  min-width: 32px; text-align: center;
+  font-weight: 600; font-size: 12px;
+  letter-spacing: .5px;
+}
+.zoom-hint {
+  font-size: 9.5px; color: var(--grayL);
+  letter-spacing: .3px; margin-left: 4px;
+}
+
+/* Main waveform canvas */
 .player-waveform {
-  height: 90px;
+  height: 100px;
   background: var(--paperL);
   position: relative;
-  cursor: pointer;
-  margin-bottom: 10px;
+  cursor: crosshair;
+  margin-bottom: 0;
+  user-select: none;
 }
-.player-waveform canvas {
-  width: 100%; height: 100%; display: block;
-}
+.player-waveform canvas { width: 100%; height: 100%; display: block; }
 .player-playhead {
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 2px;
-  background: var(--red);
-  pointer-events: none;
-  left: 0;
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: var(--red);
+  pointer-events: none; left: 0;
 }
+
+/* Scrollbar */
+#wf-scroll-track {
+  height: 6px;
+  background: rgba(42,37,32,.1);
+  margin: 4px 0 10px;
+  position: relative;
+  cursor: pointer;
+  display: none;
+}
+#wf-scroll-track.visible { display: block; }
+#wf-scroll-thumb {
+  position: absolute; top: 0; height: 100%;
+  background: var(--teal); opacity: .75;
+  cursor: grab; min-width: 20px;
+  transition: opacity .1s;
+}
+#wf-scroll-thumb:hover { opacity: 1; }
+#wf-scroll-thumb:active { cursor: grabbing; opacity: 1; }
+
+/* Breath lane */
+#breath-lane {
+  margin: 8px 0 2px;
+  border: 1px solid rgba(230,57,70,.3);
+  background: rgba(230,57,70,.04);
+}
+.lane-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 8.5px; letter-spacing: 1.6px;
+  color: #E63946; text-transform: uppercase;
+  padding: 3px 8px; border-bottom: 1px solid rgba(230,57,70,.2);
+  background: rgba(230,57,70,.06);
+}
+#breath-canvas-wrap {
+  height: 28px; position: relative;
+}
+#breath-canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+
+/* JOIN NAV */
+.join-nav {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(245,197,24,.1);
+  border: 1px solid rgba(200,149,10,.3);
+  padding: 3px 6px;
+}
+.join-nav-btn {
+  background: transparent; border: none;
+  padding: 5px 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer; color: var(--amberD); transition: all .12s;
+  white-space: nowrap;
+}
+.join-nav-btn:hover { background: var(--amberD); color: var(--white); }
+.join-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+.join-nav-counter {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--amberD);
+  min-width: 36px; text-align: center; letter-spacing: .5px;
+}
+
+/* Player controls */
 .player-controls {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 10px;
 }
 .player-ab {
-  display: inline-flex;
-  background: var(--paperL);
-  padding: 2px;
-  gap: 2px;
+  display: inline-flex; background: var(--paperL); padding: 2px; gap: 2px;
 }
 .player-ab button {
   background: transparent; border: none;
@@ -402,24 +638,20 @@ body::after {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
   text-transform: uppercase;
-  cursor: pointer; color: var(--gray);
-  transition: all .12s;
+  cursor: pointer; color: var(--gray); transition: all .12s;
 }
-.player-ab button.active {
-  background: var(--ink); color: var(--white);
-}
+.player-ab button.active { background: var(--ink); color: var(--white); }
 .player-play {
   width: 42px; height: 42px;
   background: var(--teal); border: none; cursor: pointer;
   font-size: 16px; color: var(--ink);
   display: flex; align-items: center; justify-content: center;
-  transition: all .12s;
+  transition: all .12s; flex-shrink: 0;
 }
 .player-play:hover { background: var(--tealD); color: var(--white); }
 .player-time {
   font-family: 'DM Mono', monospace;
-  font-size: 11px; color: var(--gray);
-  margin-left: auto;
+  font-size: 11px; color: var(--gray); margin-left: auto;
 }
 
 /* STATS */
@@ -470,7 +702,34 @@ body::after {
   font-size: 10.5px; color: var(--amberD); margin-top: 4px;
 }
 
-/* FOOTER */
+/* MARKER CHIP STRIP */
+#marker-list {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(42,37,32,.15);
+}
+.marker-chip {
+  display: inline-flex; align-items: center;
+  padding: 4px 9px;
+  border: 1px solid;
+  background: transparent;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; font-weight: 500;
+  letter-spacing: .6px;
+  cursor: pointer;
+  transition: all .12s;
+  white-space: nowrap;
+}
+.marker-chip:hover { opacity: .75; transform: translateY(-1px); }
+.marker-chip-info {
+  color: var(--grayL); border-color: var(--grayL);
+  cursor: default; pointer-events: none;
+}
+.marker-chip-info:hover { opacity: 1; transform: none; }
+
+
 .footer {
   margin-top: 50px; padding-top: 24px;
   border-top: 1px solid rgba(42,37,32,.2);
@@ -481,7 +740,7 @@ body::after {
 .footer strong { color: var(--ink); font-weight: 500; }
 
 </style>
-</head>
+<script src="./MPD_Audio_Joiner_files/lame.min.js.download"></script></head>
 <body>
 
 <div class="blob tl"></div>
@@ -493,7 +752,7 @@ body::after {
 <div class="header">
   <div class="header-left">
     <div class="eyebrow">Money Patterns Decoded · Production Tool</div>
-    <div class="title">Audio Joiner<br><span>& Normalizer</span></div>
+    <div class="title">Audio Joiner<br><span>&amp; Normalizer</span></div>
     <div class="subtitle">ElevenLabs parts → merged master MP3/WAV</div>
   </div>
   <div class="header-right">
@@ -508,134 +767,301 @@ body::after {
 <div class="step" id="step1">
   <div class="step-num">01 · UPLOAD CLIPS</div>
   <div class="step-title">Drop the MP3 parts in order</div>
-  <div class="step-desc">Drop ElevenLabs Part 1, Part 2 (and more if split further). Reorder using the arrows — <em>the order here is the order they'll be joined</em>. Typical MPD flow: 2 parts, joined with 8 ms crossfade at boundary.</div>
+  <div class="step-desc">Drop ElevenLabs Part 1, Part 2 (and more if split further). Reorder using the arrows — <em>the order here is the order they'll be joined</em>. Typical MPD flow: 2 parts, joined with a 30 ms sequential fade at the boundary.</div>
 
-  <label class="upload-zone" id="uz-audio">
-    <input type="file" accept=".mp3,audio/mpeg,audio/mp3,.wav,.m4a" id="file-audio" multiple>
+  <div class="upload-zone" id="uz-audio" style="cursor:pointer">
+    <input type="file" accept=".mp3,audio/mpeg,audio/mp3,.wav,.m4a" id="file-audio" multiple="" style="display:none">
     <div class="uz-label">Audio Parts</div>
     <div class="uz-hint">MP3 / WAV / M4A · drag multiple or click · up to 20 clips</div>
-  </label>
+  </div>
 
-  <div class="clip-list" id="clip-list"></div>
+  <div class="clip-list" id="clip-list"><div class="clip-card">
+      <div class="clip-idx">1</div>
+      <div class="clip-meta">
+        <div class="c-name">3. The Hidden Cost of Free Apps -1.mp3</div>
+        <div class="c-detail">3:48 · 48000 Hz · 1 ch (mono)</div>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn" onclick="moveClip(&#39;clip-1777044797893-vq32&#39;, -1)" disabled="" title="Move up">↑</button>
+        <button class="ci-btn" onclick="moveClip(&#39;clip-1777044797893-vq32&#39;, 1)" title="Move down">↓</button>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn danger" onclick="removeClip(&#39;clip-1777044797893-vq32&#39;)" title="Remove">×</button>
+      </div>
+      <div class="clip-waveform" id="cwf-clip-1777044797893-vq32"><canvas width="1350" height="48" style="width: 900px; height: 32px;"></canvas></div>
+    </div><div class="clip-card">
+      <div class="clip-idx">2</div>
+      <div class="clip-meta">
+        <div class="c-name">3. The Hidden Cost of Free Apps -2.mp3</div>
+        <div class="c-detail">2:24 · 48000 Hz · 1 ch (mono)</div>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn" onclick="moveClip(&#39;clip-1777044801814-4fgm&#39;, -1)" title="Move up">↑</button>
+        <button class="ci-btn" onclick="moveClip(&#39;clip-1777044801814-4fgm&#39;, 1)" disabled="" title="Move down">↓</button>
+      </div>
+      <div class="clip-actions">
+        <button class="ci-btn danger" onclick="removeClip(&#39;clip-1777044801814-4fgm&#39;)" title="Remove">×</button>
+      </div>
+      <div class="clip-waveform" id="cwf-clip-1777044801814-4fgm"><canvas width="1350" height="48" style="width: 900px; height: 32px;"></canvas></div>
+    </div></div>
 </div>
 
 <!-- STEP 2 — PROCESSING OPTIONS -->
-<div class="step" id="step2" data-state="locked">
+<div class="step" id="step2">
   <div class="step-num">02 · PROCESSING</div>
   <div class="step-title">Pipeline options</div>
-  <div class="step-desc">Each stage runs in this order: <em>trim silence → join with crossfade → breath removal → loudness normalization</em>. Click any card to toggle. Breath removal is marked experimental — verify result with A/B playback before export.</div>
+  <div class="step-desc">Pipeline runs in dependency order: <em>80 Hz HPF → trim silence</em> (per clip) <em>→ join → breath removal → auto boundary level match → de-esser → loudness → room-tone bed</em>. HPF first so trim and level-match measure clean RMS; breath removal before level-match so stray breaths don't skew the RMS match; room-tone last so its level isn't squashed by the limiter. Defaults are tuned for ElevenLabs TTS — click any card to toggle.</div>
+
+  <div class="reset-all-row">
+    <button class="btn small ghost" onclick="resetAllToRecommended()" title="Restore all features and values to the ElevenLabs-tuned recommended defaults">↺ Reset all to recommended</button>
+    <span class="reset-all-hint">Restores every toggle and slider to the ElevenLabs-optimised defaults.</span>
+  </div>
 
   <div class="toggle-list">
-    <!-- Join crossfade -->
-    <div class="toggle-card enabled" data-feature="join" onclick="toggleFeature('join', event)">
-      <div class="toggle-check"></div>
-      <div class="toggle-body">
-        <div class="toggle-name">Join with crossfade</div>
-        <div class="toggle-desc">Sample-perfect concatenation. Crossfade smooths the boundary between parts so the split is inaudible.</div>
-        <div class="toggle-sub">
-          <div class="field">
-            <label class="field-label">Crossfade duration (ms) <span class="fl-hint">G4</span></label>
-            <div class="slider-row">
-              <input type="range" id="xfade-ms" min="0" max="50" value="8" step="1">
-              <span class="slider-val" id="xfade-ms-val">8 ms</span>
-            </div>
-            <div class="field-hint">0 ms = hard cut · 8 ms = MPD default · 20+ ms = audible fade</div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Trim silence -->
-    <div class="toggle-card" data-feature="trim" onclick="toggleFeature('trim', event)">
+    <!-- STAGE 2 · Trim silence -->
+    <div class="toggle-card enabled" data-feature="trim" onclick="toggleFeature(&#39;trim&#39;, event)">
       <div class="toggle-check"></div>
       <div class="toggle-body">
+        <div class="toggle-stage">Stage 2 · per clip</div>
         <div class="toggle-name">Trim silence</div>
         <div class="toggle-desc">Removes leading and trailing silence from each clip before joining. Hysteresis-based detection preserves soft syllables.</div>
-        <div class="toggle-sub">
-          <div class="field">
-            <label class="field-label">Silence threshold (dB)</label>
-            <div class="slider-row">
-              <input type="range" id="trim-db" min="-60" max="-20" value="-45" step="1">
-              <span class="slider-val" id="trim-db-val">−45 dB</span>
-            </div>
-            <div class="field-hint">−45 dB = conservative · −35 dB = aggressive (may clip breaths)</div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Silence threshold (dB)</label>
+          <div class="slider-row">
+            <input type="range" id="trim-db" min="-60" max="-20" value="-50" step="0.1">
+            <input type="number" class="slider-num-sm" id="trim-db-num" min="-60" max="-20" value="-50" step="0.1">
+            <span class="slider-unit">dB</span>
           </div>
-          <div class="field">
-            <label class="field-label">Keep padding (ms)</label>
-            <div class="slider-row">
-              <input type="range" id="trim-pad" min="0" max="500" value="80" step="10">
-              <span class="slider-val" id="trim-pad-val">80 ms</span>
-            </div>
-            <div class="field-hint">Tail silence kept before hard cut — avoids abrupt endings</div>
-          </div>
+          <div class="field-hint">−50 dB = ElevenLabs-safe · −45 dB = conservative · −35 dB = aggressive (may clip breaths)</div>
         </div>
+        <div class="field">
+          <label class="field-label">Keep padding (ms)</label>
+          <div class="slider-row">
+            <input type="range" id="trim-pad" min="0" max="500" value="60" step="0.1">
+            <input type="number" class="slider-num-sm" id="trim-pad-num" min="0" max="500" value="60" step="0.1">
+            <span class="slider-unit">ms</span>
+          </div>
+          <div class="field-hint">Tail silence kept before hard cut — avoids abrupt endings</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;trim&#39;)">↺ Reset to defaults</button>
       </div>
     </div>
 
-    <!-- Breath removal -->
-    <div class="toggle-card experimental" data-feature="breath" onclick="toggleFeature('breath', event)">
+    <!-- STAGE 3 · Join with fade -->
+    <div class="toggle-card" data-feature="join" onclick="toggleFeature(&#39;join&#39;, event)">
       <div class="toggle-check"></div>
       <div class="toggle-body">
+        <div class="toggle-stage">Stage 3 · concat strategy</div>
+        <div class="toggle-name">Join with fade</div>
+        <div class="toggle-desc">Sequential concatenation — no overlap. Fades out the tail of each clip and fades in the head of the next. Words never mix. Zero = hard cut. <em>Mutually exclusive with Auto boundary level match.</em></div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Fade duration (ms) <span class="fl-hint">per clip boundary</span></label>
+          <div class="slider-row">
+            <input type="range" id="xfade-ms" min="0" max="10000" value="30" step="1">
+            <input type="number" class="slider-num-sm" id="xfade-ms-num" min="0" max="10000" value="30" step="1">
+            <span class="slider-unit">ms</span>
+          </div>
+          <div class="field-hint">0 ms = hard cut · 20–80 ms = clean voiceover join · 200–600 ms = noticeable dip · 1000+ ms = long fade</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Fade-out floor (dB) <span class="fl-hint">end of each clip</span></label>
+          <div class="slider-row">
+            <input type="range" id="fade-out-floor" min="-80" max="0" value="-80" step="0.1">
+            <input type="number" class="slider-num-sm" id="fade-out-floor-num" min="-80" max="0" value="-80" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">Level the tail fades down to before the join. −80 dB = full silence · −20 dB = keeps room tone at 10%</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Fade-in floor (dB) <span class="fl-hint">start of each clip</span></label>
+          <div class="slider-row">
+            <input type="range" id="fade-in-floor" min="-80" max="0" value="-80" step="0.1">
+            <input type="number" class="slider-num-sm" id="fade-in-floor-num" min="-80" max="0" value="-80" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">Level the head fades up from at the join. −80 dB = from silence · −20 dB = avoids hard onset, keeps 10% of signal</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;join&#39;)">↺ Reset to defaults</button>
+      </div>
+    </div>
+
+    <!-- STAGE 4 · Breath removal -->
+    <div class="toggle-card experimental" data-feature="breath" onclick="toggleFeature(&#39;breath&#39;, event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-stage">Stage 4 · joined buffer</div>
         <div class="toggle-name">Breath / click removal</div>
-        <div class="toggle-desc">Spectral-ratio detection: attenuates segments where low-frequency energy (80–400 Hz) dominates over mid (1–4 kHz). <em>Can eat soft consonants if too aggressive.</em> Preview before exporting.</div>
-        <div class="toggle-sub">
-          <div class="field">
-            <label class="field-label">Sensitivity</label>
-            <div class="slider-row">
-              <input type="range" id="br-sens" min="1" max="10" value="3" step="1">
-              <span class="slider-val" id="br-sens-val">3 / 10</span>
-            </div>
-            <div class="field-hint">1 = only obvious breaths · 5 = moderate · 10 = aggressive (DO NOT use above 5 without A/B check)</div>
+        <div class="toggle-desc">Spectral-ratio detection: attenuates segments where low-frequency energy (80–400 Hz) dominates over mid (1–4 kHz). Runs <em>before</em> level match so stray breaths don't skew the RMS. <em>Can eat soft consonants if too aggressive.</em></div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Sensitivity</label>
+          <div class="slider-row">
+            <input type="range" id="br-sens" min="1" max="10" value="3" step="0.1">
+            <input type="number" class="slider-num-sm" id="br-sens-num" min="1" max="10" value="3" step="0.1">
+            <span class="slider-unit">/ 10</span>
           </div>
-          <div class="field">
-            <label class="field-label">Attenuation (dB)</label>
-            <div class="slider-row">
-              <input type="range" id="br-atten" min="-40" max="-6" value="-18" step="1">
-              <span class="slider-val" id="br-atten-val">−18 dB</span>
-            </div>
-            <div class="field-hint">How much to duck detected breaths. −18 dB is natural. −40 dB silences completely (often artificial)</div>
-          </div>
+          <div class="field-hint">1 = only obvious breaths · 5 = moderate · 10 = aggressive (DO NOT use above 5 without A/B check)</div>
         </div>
+        <div class="field">
+          <label class="field-label">Attenuation (dB)</label>
+          <div class="slider-row">
+            <input type="range" id="br-atten" min="-40" max="-6" value="-18" step="0.1">
+            <input type="number" class="slider-num-sm" id="br-atten-num" min="-40" max="-6" value="-18" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">How much to duck detected breaths. −18 dB is natural. −40 dB silences completely (often artificial)</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;breath&#39;)">↺ Reset to defaults</button>
       </div>
     </div>
 
-    <!-- Loudness -->
-    <div class="toggle-card enabled" data-feature="lufs" onclick="toggleFeature('lufs', event)">
+    <!-- STAGE 5 · Auto boundary level match -->
+    <div class="toggle-card enabled" data-feature="autolvl" onclick="toggleFeature(&#39;autolvl&#39;, event)">
       <div class="toggle-check"></div>
       <div class="toggle-body">
+        <div class="toggle-stage">Stage 5 · joined buffer</div>
+        <div class="toggle-name">Auto boundary level match</div>
+        <div class="toggle-desc">Hard-cuts clips at the seam, then finds the last 2 spoken words from clip 1's tail and first 2 from clip 2's head. Measures their voiced RMS and smoothly ramps both toward a shared moderate level at the seam — noise floor excluded. <em>Mutually exclusive with Join with fade.</em></div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Scan window (ms) <span class="fl-hint">per side</span></label>
+          <div class="slider-row">
+            <input type="range" id="autolvl-win" min="200" max="3000" value="1200" step="10">
+            <input type="number" class="slider-num-sm" id="autolvl-win-num" min="200" max="3000" value="1200" step="0.1">
+            <span class="slider-unit">ms</span>
+          </div>
+          <div class="field-hint">How far back/forward from the seam to look for spoken words. 1000–2000 ms covers roughly 2 syllables.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Blend ramp (ms) <span class="fl-hint">per side</span></label>
+          <div class="slider-row">
+            <input type="range" id="autolvl-ramp" min="20" max="800" value="250" step="1">
+            <input type="number" class="slider-num-sm" id="autolvl-ramp-num" min="20" max="800" value="250" step="0.1">
+            <span class="slider-unit">ms</span>
+          </div>
+          <div class="field-hint">Duration of the gain ramp applied at each side of the seam. 100–300 ms = transparent · 500+ ms = audible taper.</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;autolvl&#39;)">↺ Reset to defaults</button>
+      </div>
+    </div>
+
+    <!-- STAGE 6 · De-esser -->
+    <div class="toggle-card enabled" data-feature="deess" onclick="toggleFeature(&#39;deess&#39;, event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-stage">Stage 6 · joined buffer</div>
+        <div class="toggle-name">De-esser</div>
+        <div class="toggle-desc">Reduces harsh sibilance ("s", "sh", "ts") common in AI-generated voiceover. Detects energy in the target frequency band and applies dynamic gain reduction only when it exceeds threshold.</div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Centre frequency (Hz)</label>
+          <div class="slider-row">
+            <input type="range" id="deess-freq" min="4000" max="10000" value="6500" step="100">
+            <input type="number" class="slider-num-sm" id="deess-freq-num" min="4000" max="10000" value="6500" step="0.1">
+            <span class="slider-unit">Hz</span>
+          </div>
+          <div class="field-hint">6.5 kHz = ElevenLabs sweet spot · 6–7 kHz male · 7–8 kHz female / higher TTS voices</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Threshold (dB)</label>
+          <div class="slider-row">
+            <input type="range" id="deess-thresh" min="-40" max="-10" value="-24" step="0.1">
+            <input type="number" class="slider-num-sm" id="deess-thresh-num" min="-40" max="-10" value="-24" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">Level above which gain reduction kicks in. −24 dB is a safe starting point for TTS.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Max reduction (dB)</label>
+          <div class="slider-row">
+            <input type="range" id="deess-amount" min="-12" max="-1" value="-4" step="0.1">
+            <input type="number" class="slider-num-sm" id="deess-amount-num" min="-12" max="-1" value="-4" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">−3 to −6 dB = transparent · beyond −8 dB = audible lisp risk</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;deess&#39;)">↺ Reset to defaults</button>
+      </div>
+    </div>
+
+    <!-- STAGE 7 · EBU R128 loudness -->
+    <div class="toggle-card enabled" data-feature="lufs" onclick="toggleFeature(&#39;lufs&#39;, event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-stage">Stage 7 · joined buffer</div>
         <div class="toggle-name">EBU R128 loudness</div>
         <div class="toggle-desc">Gated ITU-R BS.1770-4 loudness normalization with K-weighted filters and absolute/relative gates. True-peak-limited output to prevent inter-sample clipping.</div>
-        <div class="toggle-sub">
-          <div class="config-row">
-            <div class="field">
-              <label class="field-label">Target (LUFS)</label>
-              <select id="lufs-target">
-                <option value="-14" selected>−14 · YouTube / Spotify</option>
-                <option value="-16">−16 · Podcast / Apple Podcasts</option>
-                <option value="-18">−18 · Broadcast TV</option>
-                <option value="-23">−23 · EBU R128 strict</option>
-                <option value="-12">−12 · Loud (music)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label">True peak (dBTP)</label>
-              <select id="lufs-tp">
-                <option value="-1" selected>−1 · YouTube safe</option>
-                <option value="-1.5">−1.5 · Apple recommended</option>
-                <option value="-2">−2 · Broadcast safe</option>
-                <option value="0">0 · No limiting</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field-label">Tolerance</label>
-              <select id="lufs-tol">
-                <option value="0.5" selected>±0.5 LUFS</option>
-                <option value="0.2">±0.2 LUFS strict</option>
-                <option value="1.0">±1.0 LUFS loose</option>
-              </select>
-            </div>
+      </div>
+      <div class="toggle-sub">
+        <div class="config-row">
+          <div class="field">
+            <label class="field-label">Target (LUFS)</label>
+            <select id="lufs-target">
+              <option value="-14" selected="">−14 · YouTube / Spotify</option>
+              <option value="-16">−16 · Podcast / Apple Podcasts</option>
+              <option value="-18">−18 · Broadcast TV</option>
+              <option value="-23">−23 · EBU R128 strict</option>
+              <option value="-12">−12 · Loud (music)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label">True peak (dBTP)</label>
+            <select id="lufs-tp">
+              <option value="-1" selected="">−1 · YouTube safe</option>
+              <option value="-1.5">−1.5 · Apple recommended</option>
+              <option value="-2">−2 · Broadcast safe</option>
+              <option value="0">0 · No limiting</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label">Tolerance</label>
+            <select id="lufs-tol">
+              <option value="0.5" selected="">±0.5 LUFS</option>
+              <option value="0.2">±0.2 LUFS strict</option>
+              <option value="1.0">±1.0 LUFS loose</option>
+            </select>
           </div>
         </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;lufs&#39;)" style="margin-top:10px">↺ Reset to defaults</button>
+      </div>
+    </div>
+
+    <!-- STAGE 8 · Room tone bed -->
+    <div class="toggle-card enabled" data-feature="roomtone" onclick="toggleFeature(&#39;roomtone&#39;, event)">
+      <div class="toggle-check"></div>
+      <div class="toggle-body">
+        <div class="toggle-stage">Stage 8 · final buffer</div>
+        <div class="toggle-name">Room tone bed</div>
+        <div class="toggle-desc">Lays a low-level filtered noise bed under the entire mix. AI voice over perfect silence reads as synthetic; a faint bed restores the sense of a real space. Applied <em>after</em> loudness normalisation so it doesn't get limiter-squashed.</div>
+      </div>
+      <div class="toggle-sub">
+        <div class="field">
+          <label class="field-label">Bed level (dB)</label>
+          <div class="slider-row">
+            <input type="range" id="rt-level" min="-72" max="-40" value="-58" step="0.1">
+            <input type="number" class="slider-num-sm" id="rt-level-num" min="-72" max="-40" value="-58" step="0.1">
+            <span class="slider-unit">dB</span>
+          </div>
+          <div class="field-hint">−60 to −54 dB = subliminal · louder than −50 dB = audible hiss</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Character</label>
+          <select id="rt-char">
+            <option value="pink" selected="">Pink noise (natural room)</option>
+            <option value="brown">Brown noise (deep hum)</option>
+            <option value="white">White noise (bright air)</option>
+          </select>
+          <div class="field-hint">Pink = warmest, most neutral · Brown = softer, warmer · White = brighter</div>
+        </div>
+        <button class="btn small ghost reset-defaults-btn" onclick="resetFeatureDefaults(&#39;roomtone&#39;)">↺ Reset to defaults</button>
       </div>
     </div>
 
@@ -643,43 +1069,90 @@ body::after {
 </div>
 
 <!-- STEP 3 — PROCESS & PREVIEW -->
-<div class="step" id="step3" data-state="locked">
-  <div class="step-num">03 · PROCESS & PREVIEW</div>
+<div class="step" id="step3" data-state="done">
+  <div class="step-num">03 · PROCESS &amp; PREVIEW</div>
   <div class="step-title">Render · preview · A/B compare</div>
   <div class="step-desc">Runs the pipeline. Waveform appears below. <em>Toggle A/B to compare raw join vs processed</em> — verify no consonants were eaten by breath removal. Scrub the waveform to jump to any position.</div>
 
-  <button class="btn primary" id="btn-process" disabled onclick="runProcess()">⚡ Process Audio</button>
-  <div id="btn-process-hint" style="margin-top:10px;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:rgba(42,37,32,.55);font-family:'DM Mono',monospace;">Add at least one audio clip above.</div>
+  <button class="btn primary" id="btn-process" onclick="runProcess()">⚡ Process Audio</button>
+  <div id="btn-process-hint" style="margin-top:10px;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:rgba(42,37,32,.55);font-family:&#39;DM Mono&#39;,monospace;">Ready to process 2 clips.</div>
 
-  <div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+  <div class="progress" id="progress"><div class="progress-bar" id="progress-bar" style="width: 100%; background: transparent;"><div class="progress-indeterminate"></div></div></div>
 
-  <div class="status" id="status" style="display:none"></div>
+  <div class="status" id="status" style="display: block;"><div class="log-line "><span class="log-time">20:33:17</span>Decoding 3. The Hidden Cost of Free Apps -1.mp3 (3.5 MB)...</div><div class="log-line ok"><span class="log-time">20:33:18</span>✓ Decoded 3. The Hidden Cost of Free Apps -1.mp3 — 3:48 @ 48000 Hz</div><div class="log-line "><span class="log-time">20:33:21</span>Decoding 3. The Hidden Cost of Free Apps -2.mp3 (2.2 MB)...</div><div class="log-line ok"><span class="log-time">20:33:22</span>✓ Decoded 3. The Hidden Cost of Free Apps -2.mp3 — 2:24 @ 48000 Hz</div><div class="log-line "><span class="log-time">20:33:47</span>Applying 80 Hz high-pass per clip (rumble / DC removal)...</div><div class="log-line "><span class="log-time">20:33:47</span>Trimming silence (threshold -50 dB, pad 60 ms)...</div><div class="log-line ok"><span class="log-time">20:33:47</span>✓ Trimmed 0.70s total</div><div class="log-line "><span class="log-time">20:33:47</span>Joining 2 clip(s) with hard cut (autolvl will smooth the seam)...</div><div class="log-line ok"><span class="log-time">20:33:47</span>✓ Joined → 6:12 @ 48000 Hz</div><div class="log-line "><span class="log-time">20:33:47</span>Auto boundary level match (scan 1200 ms / side, ramp 250 ms)...</div><div class="log-line ok"><span class="log-time">20:33:47</span>  seam 1/1: gate -36.2 dB · tail 2 word(s) @ -17.8 dB · head 2 word(s) @ -12.7 dB · target -15.3 dB · gains +2.6/-2.6 dB</div><div class="log-line ok"><span class="log-time">20:33:47</span>✓ Boundary levels matched</div><div class="log-line "><span class="log-time">20:33:47</span>De-essing (centre 6500 Hz, threshold -24 dB, max reduction -4 dB)...</div><div class="log-line ok"><span class="log-time">20:33:47</span>✓ Sibilance attenuated</div><div class="log-line "><span class="log-time">20:33:47</span>Measuring integrated loudness (ITU-R BS.1770-4)...</div><div class="log-line "><span class="log-time">20:33:48</span>  Input integrated: -15.29 LUFS</div><div class="log-line "><span class="log-time">20:33:48</span>  Input true peak: 1.08 dBTP</div><div class="log-line "><span class="log-time">20:33:48</span>  Required gain: +1.29 dB</div><div class="log-line "><span class="log-time">20:33:48</span>Re-measuring after normalization...</div><div class="log-line warn"><span class="log-time">20:33:48</span>  Final integrated: -17.54 LUFS (⚠ outside tolerance)</div><div class="log-line ok"><span class="log-time">20:33:48</span>  Final true peak: -1.18 dBTP (✓)</div><div class="log-line ok"><span class="log-time">20:33:48</span>✓ EBU R128 NORMALIZATION APPLIED: +1.29 dB → -17.54 LUFS (target -14.0)</div><div class="log-line "><span class="log-time">20:33:48</span>Adding pink room-tone bed at -58 dB...</div><div class="log-line ok"><span class="log-time">20:33:48</span>✓ Room-tone bed laid</div><div class="log-line ok"><span class="log-time">20:33:49</span>Pipeline complete — ready for A/B preview and export.</div><div class="log-line "><span class="log-time">20:34:05</span>Encoding MP3 @ 256 kbps...</div><div class="log-line "><span class="log-time">20:34:05</span>Loading MP3 encoder (lamejs)...</div><div class="log-line ok"><span class="log-time">20:34:17</span>Downloaded 3. The Hidden Cost of Free Apps -1.mp3 (11.4 MB)</div><div class="log-line "><span class="log-time">20:34:25</span>Encoding MP3 @ 256 kbps...</div><div class="log-line ok"><span class="log-time">20:34:38</span>Downloaded asdsfad.mp3 (11.4 MB)</div></div>
 
-  <div class="player-wrap" id="player-wrap">
+  <div class="player-wrap active" id="player-wrap">
+
+    <!-- Legend -->
+    <div id="wf-legend">
+      <span class="leg-item">
+        <span class="leg-swatch" style="background:rgba(245,197,24,0.22);border:1px solid #F5C518;width:18px;height:12px;"></span>
+        Join fade region
+      </span>
+      <span class="leg-item" id="legend-raw" style="display: flex;">
+        <span class="leg-swatch" style="background:rgba(230,57,70,0.75);height:8px;width:18px;"></span>
+        Raw (outer)
+      </span>
+      <span class="leg-item" id="legend-proc" style="display: flex;">
+        <span class="leg-swatch" style="background:var(--tealD);height:2px;width:18px;"></span>
+        Processed (inner)
+      </span>
+      <span id="legend-ab-hint" style="font-family: &quot;DM Mono&quot;, monospace; font-size: 9px; letter-spacing: 0.6px; color: var(--gray); margin-left: 4px; display: inline;">A/B = playback only</span>
+    </div>
+
+    <!-- Zoom toolbar -->
+    <div id="zoom-toolbar">
+      <span class="zoom-label-prefix">ZOOM</span>
+      <button class="zoom-btn" onclick="zoomStep(-1)" title="Zoom out">−</button>
+      <span id="zoom-label">1×</span>
+      <button class="zoom-btn" onclick="zoomStep(1)" title="Zoom in">+</button>
+      <button class="zoom-btn zoom-reset" onclick="zoomReset()" title="Reset zoom">FIT</button>
+      <span class="zoom-hint">· scroll wheel or drag to pan when zoomed</span>
+    </div>
+
+    <!-- Main waveform -->
     <div class="player-waveform" id="player-wf">
-      <canvas id="wf-canvas"></canvas>
-      <div class="player-playhead" id="playhead"></div>
+      <canvas id="wf-canvas" width="1419" height="150" style="width: 946px; height: 100px;"></canvas>
+      <div class="player-playhead" id="playhead" style="left: 155.161px;"></div>
     </div>
+
+    <!-- Scrollbar -->
+    <div id="wf-scroll-track"><div id="wf-scroll-thumb"></div></div>
+
+    <!-- Breath / click lane (hidden until breath removal ran) -->
+    <div id="breath-lane" style="display:none">
+      <div class="lane-label">BREATH · CLICK REGIONS</div>
+      <div id="breath-canvas-wrap"><canvas id="breath-canvas"></canvas></div>
+    </div>
+
+    <!-- Playback controls -->
     <div class="player-controls">
-      <button class="player-play" id="play-btn" onclick="togglePlay()">▶</button>
-      <div class="player-ab">
-        <button class="active" data-ab="processed" onclick="setAB('processed')">Processed</button>
-        <button data-ab="raw" onclick="setAB('raw')">Raw Join</button>
+      <button class="player-play" id="play-btn" onclick="togglePlay()">❚❚</button>
+      <div class="join-nav" id="join-nav" style="display: inline-flex;">
+        <button class="join-nav-btn" onclick="jumpToJoin(-1)" title="Previous join point">◀ Prev join</button>
+        <span class="join-nav-counter" id="join-nav-counter">1/1</span>
+        <button class="join-nav-btn" onclick="jumpToJoin(1)" title="Next join point">Next join ▶</button>
       </div>
-      <div class="player-time" id="player-time">0:00 / 0:00</div>
+      <div class="player-ab">
+        <button class="active" data-ab="processed" onclick="setAB(&#39;processed&#39;)">Processed</button>
+        <button data-ab="raw" onclick="setAB(&#39;raw&#39;)">Raw Join</button>
+      </div>
+      <div class="player-time" id="player-time">1:01 / 6:12</div>
     </div>
+
+    <div id="marker-list" style="display: flex;"><button class="marker-chip" title="Jump to fade boundary at 3:47 → 3:47" style="border-color: rgb(200, 149, 10); color: rgb(200, 149, 10); background: rgba(245, 197, 24, 0.12);">⇌ Join 1→2 · 3:47</button></div>
   </div>
 
-  <div class="stats" id="stats-grid" style="display:none">
-    <div class="stat"><div class="sv teal" id="stat-duration">—</div><div class="sl">Duration</div></div>
-    <div class="stat"><div class="sv" id="stat-lufs">—</div><div class="sl">Integrated LUFS</div></div>
-    <div class="stat"><div class="sv amber" id="stat-tp">—</div><div class="sl">True Peak</div></div>
-    <div class="stat"><div class="sv" id="stat-sr">—</div><div class="sl">Sample Rate</div></div>
+  <div class="stats" id="stats-grid" style="display: grid;">
+    <div class="stat"><div class="sv teal" id="stat-duration">6:12</div><div class="sl">Duration</div></div>
+    <div class="stat"><div class="sv" id="stat-lufs">-17.5</div><div class="sl">Integrated LUFS</div></div>
+    <div class="stat"><div class="sv amber" id="stat-tp">-1.2</div><div class="sl">True Peak</div></div>
+    <div class="stat"><div class="sv" id="stat-sr">48.0k</div><div class="sl">Sample Rate</div></div>
   </div>
 </div>
 
 <!-- STEP 4 — EXPORT -->
-<div class="step" id="step4" data-state="locked">
+<div class="step" id="step4">
   <div class="step-num">04 · EXPORT</div>
   <div class="step-title">Download</div>
   <div class="step-desc">MP3 = matches MPD naming convention (<code>_VoiceAudio_v1.mp3</code>), lossy ~256 kbps. WAV = lossless 16-bit PCM, ~10× bigger.</div>
@@ -691,15 +1164,15 @@ body::after {
   </div>
 
   <div style="display:flex; gap:10px; flex-wrap:wrap">
-    <button class="btn primary" id="btn-mp3" disabled onclick="exportFile('mp3')">⬇ Export MP3</button>
-    <button class="btn ghost" id="btn-wav" disabled onclick="exportFile('wav')">⬇ Export WAV</button>
+    <button class="btn primary" id="btn-mp3" onclick="exportFile(&#39;mp3&#39;)">⬇ Export MP3</button>
+    <button class="btn ghost" id="btn-wav" onclick="exportFile(&#39;wav&#39;)">⬇ Export WAV</button>
   </div>
 </div>
 
 <div class="footer">
   <strong>Money Patterns Decoded · Internal Reference</strong><br>
   Companion tool for Context File v1.9 · Prompt 3.2.5 · ElevenLabs Voice Generation<br>
-  Pipeline: Trim (hysteresis VAD) → Join (sample-perfect with equal-power crossfade) → Breath removal (spectral ratio gate) → Loudness (ITU-R BS.1770-4 K-weighted, gated)<br>
+  Pipeline: Trim (hysteresis VAD) → Join (sequential fade-out/fade-in, no overlap) → Breath removal (spectral ratio gate) → Loudness (ITU-R BS.1770-4 K-weighted, gated)<br>
   <span style="color:var(--grayL)">MP3 encoding via lamejs (pure JS). WAV encoded natively (16-bit PCM).</span>
 </div>
 
@@ -711,7 +1184,13 @@ body::after {
 ═══════════════════════════════════════════════ */
 const state = {
   clips: [],           // [{ id, file, name, buffer, duration }]
-  features: { join: true, trim: false, breath: false, lufs: true },
+  // Defaults tuned for ElevenLabs TTS workflow:
+  //  - trim ON (EL adds silent padding to every render)
+  //  - autolvl ON, join OFF (autolvl handles EL's chunk-to-chunk level drift better than fade)
+  //  - deess ON (EL sibilance peak around 6.5 kHz is consistent across voices)
+  //  - roomtone ON (silences under EL voice read as synthetic; subtle bed restores realism)
+  //  - breath OFF (opt-in — can eat soft consonants on clean TTS)
+  features: { join: false, trim: true, breath: false, lufs: true, autolvl: true, deess: true, roomtone: true },
   rawBuffer: null,     // joined but not processed (for A/B)
   processedBuffer: null,
   metrics: null,       // { lufs, truePeak, duration }
@@ -722,6 +1201,10 @@ const state = {
   playStart: 0,
   playOffset: 0,
   lamejs: null,        // lazy-loaded
+  markers: [],         // [{ time, start, end, type, label, color }] — join seams
+  breathRegions: [],   // [{ start, end }] in seconds — detected breath spans
+  zoom: 1,             // zoom multiplier (1 = full view)
+  scrollSec: 0,        // view window start in seconds
 };
 window.__state = state;
 
@@ -778,6 +1261,9 @@ function escapeHtml(s) {
 /* ═══════════════════════════════════════════════
    FEATURE TOGGLES
 ═══════════════════════════════════════════════ */
+// join ↔ autolvl are two different strategies for the same boundary —
+// only one can be active at a time. Clicking one auto-disables the other.
+const EXCLUSIVE_PAIRS = [['join', 'autolvl']];
 window.toggleFeature = function(f, e) {
   // Ignore clicks that originated inside interactive sub-controls (sliders, inputs, buttons)
   if (e) {
@@ -786,23 +1272,135 @@ window.toggleFeature = function(f, e) {
   }
   state.features[f] = !state.features[f];
   document.querySelector(`[data-feature="${f}"]`).classList.toggle('enabled');
+
+  // If we just ENABLED f, disable its exclusive partner (if any)
+  if (state.features[f]) {
+    for (const pair of EXCLUSIVE_PAIRS) {
+      if (pair.includes(f)) {
+        const other = pair.find(x => x !== f);
+        if (other && state.features[other]) {
+          state.features[other] = false;
+          const oc = document.querySelector(`[data-feature="${other}"]`);
+          if (oc) oc.classList.remove('enabled');
+        }
+      }
+    }
+  }
   updateProcessButton();
 };
 
-// Slider value displays
-function wireSlider(id, fmt) {
-  const el = $(id);
-  const vEl = $(id + '-val');
-  if (!el || !vEl) return;
-  const update = () => { vEl.textContent = fmt(el.value); };
-  el.addEventListener('input', update);
-  update();
+// Bidirectional slider ↔ number input sync
+function wireSlider(rangeId, numId, clamp) {
+  const range = $(rangeId);
+  const num   = $(numId);
+  if (!range) return;
+
+  const sync = (val) => {
+    let v = parseFloat(val);
+    const mn = parseFloat(range.min);
+    const mx = parseFloat(range.max);
+    if (isNaN(v)) v = parseFloat(range.value);
+    v = Math.max(mn, Math.min(mx, v));
+    range.value = v;
+    if (num) num.value = v;
+  };
+
+  range.addEventListener('input', () => { if (num) num.value = range.value; });
+  if (num) {
+    // While typing: only mirror to the slider — never overwrite num.value, or
+    // users can't type decimals (parseFloat("4.") drops the dot on every keystroke).
+    num.addEventListener('input', () => {
+      const v = parseFloat(num.value);
+      if (!isNaN(v)) {
+        const mn = parseFloat(range.min);
+        const mx = parseFloat(range.max);
+        range.value = Math.max(mn, Math.min(mx, v));
+      }
+    });
+    // Commit on blur / Enter / arrow keys — now safe to clamp and write back.
+    num.addEventListener('change', () => sync(num.value));
+    num.addEventListener('blur',   () => sync(num.value));
+    num.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp')   { sync(parseFloat(num.value) + parseFloat(range.step || 1)); e.preventDefault(); }
+      if (e.key === 'ArrowDown') { sync(parseFloat(num.value) - parseFloat(range.step || 1)); e.preventDefault(); }
+    });
+  }
+  sync(range.value);
 }
-wireSlider('xfade-ms', v => v + ' ms');
-wireSlider('trim-db', v => '−' + Math.abs(v) + ' dB');
-wireSlider('trim-pad', v => v + ' ms');
-wireSlider('br-sens', v => v + ' / 10');
-wireSlider('br-atten', v => '−' + Math.abs(v) + ' dB');
+
+wireSlider('xfade-ms',        'xfade-ms-num');
+wireSlider('fade-out-floor',  'fade-out-floor-num');
+wireSlider('fade-in-floor',   'fade-in-floor-num');
+wireSlider('autolvl-win',     'autolvl-win-num');
+wireSlider('autolvl-ramp',    'autolvl-ramp-num');
+wireSlider('trim-db',         'trim-db-num');
+wireSlider('trim-pad',        'trim-pad-num');
+wireSlider('br-sens',         'br-sens-num');
+wireSlider('br-atten',        'br-atten-num');
+wireSlider('deess-freq',      'deess-freq-num');
+wireSlider('deess-thresh',    'deess-thresh-num');
+wireSlider('deess-amount',    'deess-amount-num');
+wireSlider('rt-level',        'rt-level-num');
+
+/* ═══════════════════════════════════════════════
+   RESET TO DEFAULTS
+═══════════════════════════════════════════════ */
+// Values tuned for ElevenLabs TTS workflow. See rationale in docs / comments above `features`.
+const FEATURE_DEFAULTS = {
+  join:    { 'xfade-ms': 30, 'xfade-ms-num': 30, 'fade-out-floor': -80, 'fade-out-floor-num': -80, 'fade-in-floor': -80, 'fade-in-floor-num': -80 },
+  autolvl: { 'autolvl-win': 1200, 'autolvl-win-num': 1200, 'autolvl-ramp': 250, 'autolvl-ramp-num': 250 },
+  trim:   { 'trim-db': -50, 'trim-db-num': -50, 'trim-pad': 60, 'trim-pad-num': 60 },
+  breath: { 'br-sens': 3, 'br-sens-num': 3, 'br-atten': -18, 'br-atten-num': -18 },
+  deess:  { 'deess-freq': 6500, 'deess-freq-num': 6500, 'deess-thresh': -24, 'deess-thresh-num': -24, 'deess-amount': -4, 'deess-amount-num': -4 },
+  roomtone: { 'rt-level': -58, 'rt-level-num': -58, 'rt-char': 'pink' },
+  lufs:   { 'lufs-target': '-14', 'lufs-tp': '-1', 'lufs-tol': '0.5' },
+};
+
+// Recommended feature on/off state, paired with FEATURE_DEFAULTS. Used by "Reset all to recommended".
+const FEATURE_ENABLED_DEFAULTS = {
+  join: false, trim: true, breath: false, lufs: true, autolvl: true, deess: true, roomtone: true,
+};
+
+window.resetFeatureDefaults = function(feature) {
+  const defs = FEATURE_DEFAULTS[feature];
+  if (!defs) return;
+  Object.entries(defs).forEach(([id, val]) => {
+    const el = $(id);
+    if (!el) return;
+    el.value = val;
+    // Fire input event so the display label updates
+    el.dispatchEvent(new Event('input'));
+    // Fire change for selects
+    el.dispatchEvent(new Event('change'));
+  });
+};
+
+/* ═══════════════════════════════════════════════
+   RESET ALL — restore every feature on/off state AND every
+   slider/select value to the ElevenLabs-tuned recommended
+   configuration. One-click undo of any manual tweaking.
+═══════════════════════════════════════════════ */
+window.resetAllToRecommended = function() {
+  // 1. Sync every feature's enabled state
+  Object.entries(FEATURE_ENABLED_DEFAULTS).forEach(([feature, shouldBeOn]) => {
+    const card = document.querySelector('[data-feature="' + feature + '"]');
+    const isOn = state.features[feature];
+    if (isOn !== shouldBeOn) {
+      state.features[feature] = shouldBeOn;
+      if (card) {
+        if (shouldBeOn) card.classList.add('enabled');
+        else card.classList.remove('enabled');
+      }
+    }
+  });
+
+  // 2. Sync every slider/select value
+  Object.keys(FEATURE_DEFAULTS).forEach(feature => resetFeatureDefaults(feature));
+
+  // 3. Refresh downstream UI
+  if (typeof updateProcessButton === 'function') updateProcessButton();
+  if (typeof log === 'function') log('✓ All features and values reset to ElevenLabs-recommended defaults', 'ok');
+};
 
 /* ═══════════════════════════════════════════════
    FILE UPLOAD
@@ -810,7 +1408,11 @@ wireSlider('br-atten', v => '−' + Math.abs(v) + ' dB');
 function bindUpload() {
   const zone = $('uz-audio');
   const input = $('file-audio');
-  zone.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') input.click(); });
+  zone.addEventListener('click', e => {
+    // Only open if the click wasn't on an interactive element inside the zone
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+    input.click();
+  });
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
   zone.addEventListener('drop', e => {
@@ -1095,62 +1697,73 @@ function mixToMono(buffer) {
 }
 
 /* ═══════════════════════════════════════════════
-   PIPELINE STAGE 2: JOIN WITH EQUAL-POWER CROSSFADE
+   PIPELINE STAGE 2: JOIN WITH SEQUENTIAL FADE
+   — No overlap: clips are placed end-to-end
+   — Fade-out applied to tail of each clip (except last)
+   — Fade-in applied to head of each clip (except first)
+   — Words never mix; only the amplitude envelope changes at boundaries
 ═══════════════════════════════════════════════ */
-function joinBuffers(buffers, xfadeMs) {
+function joinBuffers(buffers, fadeMs, fadeOutFloorDb, fadeInFloorDb) {
   if (buffers.length === 0) throw new Error('No buffers to join');
   if (buffers.length === 1) return buffers[0];
 
-  // All clips must share sample rate and channel count — resample if needed
+  // Normalise sample-rate and channel count
   const sr = buffers[0].sampleRate;
   const channels = buffers[0].numberOfChannels;
   const normalized = buffers.map(b => {
     if (b.sampleRate === sr && b.numberOfChannels === channels) return b;
-    // Simple resample via OfflineAudioContext (browser-native)
     return resampleBuffer(b, sr, channels);
   });
 
-  const xfadeSamples = Math.round(sr * xfadeMs / 1000);
+  const fadeSamples = Math.round(sr * fadeMs / 1000);
+
+  // Convert floor dB values to linear (clamp -80 dB → effectively 0)
+  const outFloorLin = fadeOutFloorDb <= -79 ? 0 : Math.pow(10, fadeOutFloorDb / 20);
+  const inFloorLin  = fadeInFloorDb  <= -79 ? 0 : Math.pow(10, fadeInFloorDb  / 20);
+
+  // Total length = sum of all clip lengths (no overlap)
   let totalSamples = 0;
-  for (let i = 0; i < normalized.length; i++) {
-    totalSamples += normalized[i].length;
-    if (i > 0) totalSamples -= xfadeSamples;
-  }
+  for (const b of normalized) totalSamples += b.length;
   if (totalSamples <= 0) throw new Error('Total duration is zero');
 
   const ctx = getAudioCtx();
   const out = ctx.createBuffer(channels, totalSamples, sr);
 
-  // Write channel-by-channel
   for (let c = 0; c < channels; c++) {
     const dst = out.getChannelData(c);
     let writePos = 0;
+
     for (let i = 0; i < normalized.length; i++) {
       const src = normalized[i].getChannelData(Math.min(c, normalized[i].numberOfChannels - 1));
-      if (i === 0) {
-        // First clip: copy as-is
-        for (let j = 0; j < src.length; j++) dst[writePos + j] = src[j];
-        writePos += src.length;
-      } else {
-        // Crossfade: previous clip's tail (now at dst[writePos - xfadeSamples..writePos])
-        // fades out while this clip's head fades in, sum both.
-        if (xfadeSamples > 0) {
-          const xfStart = writePos - xfadeSamples;
-          for (let j = 0; j < xfadeSamples; j++) {
-            // Equal-power cosine crossfade — preserves loudness better than linear
-            const t = j / xfadeSamples;
-            const gA = Math.cos(t * Math.PI / 2);  // fade out prev
-            const gB = Math.cos((1 - t) * Math.PI / 2);  // fade in next
-            dst[xfStart + j] = dst[xfStart + j] * gA + src[j] * gB;
+
+      // Copy all samples
+      for (let j = 0; j < src.length; j++) dst[writePos + j] = src[j];
+
+      if (fadeSamples > 0) {
+        // Fade-in: head of this clip (except first clip)
+        // Gain goes from inFloorLin → 1 using cosine curve
+        if (i > 0) {
+          const fs = Math.min(fadeSamples, src.length);
+          for (let j = 0; j < fs; j++) {
+            const t = j / fs;
+            const gain = inFloorLin + (1 - inFloorLin) * Math.sin(t * Math.PI / 2);
+            dst[writePos + j] *= gain;
           }
-          // Remaining samples of this clip copy straight
-          for (let j = xfadeSamples; j < src.length; j++) dst[writePos + j - xfadeSamples] = src[j];
-          writePos += src.length - xfadeSamples;
-        } else {
-          for (let j = 0; j < src.length; j++) dst[writePos + j] = src[j];
-          writePos += src.length;
+        }
+        // Fade-out: tail of this clip (except last clip)
+        // Gain goes from 1 → outFloorLin using cosine curve
+        if (i < normalized.length - 1) {
+          const fs = Math.min(fadeSamples, src.length);
+          const fadeStart = writePos + src.length - fs;
+          for (let j = 0; j < fs; j++) {
+            const t = j / fs;
+            const gain = outFloorLin + (1 - outFloorLin) * Math.cos(t * Math.PI / 2);
+            dst[fadeStart + j] *= gain;
+          }
         }
       }
+
+      writePos += src.length;
     }
   }
   return out;
@@ -1295,7 +1908,12 @@ function detectAndAttenuateBreaths(buffer, sensitivity, attenDb) {
     const dst = out.getChannelData(c);
     for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain[i];
   }
-  return { buffer: out, detectedRuns: keepRuns.length };
+  // Convert keepRuns frame indices → seconds for marker overlay
+  const breathRegions = keepRuns.map(([f0, f1]) => ({
+    start: (f0 * hopSize) / sr,
+    end:   Math.min(buffer.duration, (f1 * hopSize + frameSize) / sr)
+  }));
+  return { buffer: out, detectedRuns: keepRuns.length, breathRegions };
 }
 
 function hannWindow(N) {
@@ -1534,6 +2152,317 @@ function applyGainAndLimit(buffer, gainDb, truePeakLimitDb) {
 }
 
 /* ═══════════════════════════════════════════════
+   UTILITY: COPY AUDIO BUFFER
+   Creates a distinct buffer with identical sample data.
+   Essential for A/B: prevents processedBuffer and rawBuffer
+   from being the same JS object when no processing is applied.
+═══════════════════════════════════════════════ */
+function copyAudioBuffer(buf) {
+  const ctx = getAudioCtx();
+  const copy = ctx.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    copy.getChannelData(c).set(buf.getChannelData(c));
+  }
+  return copy;
+}
+
+/* ═══════════════════════════════════════════════
+   STAGE: 80 Hz HIGH-PASS (always-on rumble/DC removal)
+   Biquad HPF, Q=0.707, applied in-place to every channel.
+   Removes sub-80 Hz content that TTS engines sometimes render
+   as DC bias or low-frequency breathing noise. Inaudible for
+   voice content; essential for clean LUFS measurement.
+═══════════════════════════════════════════════ */
+function applyHighPass(buffer, cutoffHz) {
+  const sr = buffer.sampleRate;
+  // Biquad high-pass coefficients (RBJ cookbook, Q = 1/sqrt(2))
+  const w0 = 2 * Math.PI * cutoffHz / sr;
+  const cosw = Math.cos(w0), sinw = Math.sin(w0);
+  const Q = 0.707;
+  const alpha = sinw / (2 * Q);
+  const b0 =  (1 + cosw) / 2;
+  const b1 = -(1 + cosw);
+  const b2 =  (1 + cosw) / 2;
+  const a0 =  1 + alpha;
+  const a1 = -2 * cosw;
+  const a2 =  1 - alpha;
+
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, sr);
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < src.length; i++) {
+      const x0 = src[i];
+      const y0 = (b0/a0)*x0 + (b1/a0)*x1 + (b2/a0)*x2 - (a1/a0)*y1 - (a2/a0)*y2;
+      dst[i] = y0;
+      x2 = x1; x1 = x0;
+      y2 = y1; y1 = y0;
+    }
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
+   STAGE: DE-ESSER
+   Split-band dynamic attenuation at sibilance frequencies.
+   1. Band-pass the signal around centre freq (±1 octave).
+   2. Rectify + smooth to get sibilance envelope.
+   3. When envelope exceeds threshold, compute gain reduction.
+   4. Apply reduction to the FULL-BAND signal (not just high band)
+      so we don't introduce spectral tilt — just duck the whole
+      voice briefly during the "s". This is the frequency-selective
+      variant of a broadband compressor keyed from sibilance.
+   Fast attack (2 ms), medium release (60 ms) — classic de-esser timing.
+═══════════════════════════════════════════════ */
+function applyDeEsser(buffer, centreHz, thresholdDb, maxReductionDb) {
+  const sr = buffer.sampleRate;
+  // Band-pass biquad centred at centreHz, Q tuned for ~1 octave BW
+  const w0 = 2 * Math.PI * centreHz / sr;
+  const cosw = Math.cos(w0), sinw = Math.sin(w0);
+  const Q = 1.4;
+  const alpha = sinw / (2 * Q);
+  // Constant-skirt band-pass (BPF, peak gain = Q)
+  const b0 =  alpha;
+  const b1 =  0;
+  const b2 = -alpha;
+  const a0 =  1 + alpha;
+  const a1 = -2 * cosw;
+  const a2 =  1 - alpha;
+
+  const thrLin   = Math.pow(10, thresholdDb / 20);
+  const maxRedLin = Math.pow(10, maxReductionDb / 20);   // e.g. -5 dB → 0.562
+  const attackCoef  = Math.exp(-1 / (0.002 * sr));       // 2 ms attack
+  const releaseCoef = Math.exp(-1 / (0.060 * sr));       // 60 ms release
+
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, sr);
+
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    let env = 0, gainSmooth = 1;
+    for (let i = 0; i < src.length; i++) {
+      const x0 = src[i];
+      // Side-chain: band-pass
+      const bp = (b0/a0)*x0 + (b1/a0)*x1 + (b2/a0)*x2 - (a1/a0)*y1 - (a2/a0)*y2;
+      x2 = x1; x1 = x0;
+      y2 = y1; y1 = bp;
+      // Envelope follower on |bp|
+      const rect = Math.abs(bp);
+      env = rect > env ? attackCoef * env + (1 - attackCoef) * rect
+                       : releaseCoef * env + (1 - releaseCoef) * rect;
+      // Target gain: 1 when below threshold, drops toward maxRedLin above
+      let targetGain = 1;
+      if (env > thrLin) {
+        // Linear interp in dB between thr and (thr + 20 dB headroom) → maps to maxRed
+        const overDb = 20 * Math.log10(env / thrLin);
+        const ratio = Math.min(1, overDb / 12);         // full reduction reached 12 dB over
+        targetGain = 1 + (maxRedLin - 1) * ratio;       // 1 → maxRedLin
+      }
+      // Smooth gain with same attack/release so we don't get zippering
+      gainSmooth = targetGain < gainSmooth
+        ? attackCoef * gainSmooth + (1 - attackCoef) * targetGain
+        : releaseCoef * gainSmooth + (1 - releaseCoef) * targetGain;
+      dst[i] = x0 * gainSmooth;
+    }
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
+   STAGE: ROOM-TONE BED
+   Adds a subtle noise bed so the perfect silence between TTS
+   phrases doesn't read as "fake". Pink/brown/white variants.
+   Applied AFTER loudness normalisation — the bed level is set
+   in absolute dBFS terms, independent of the voice LUFS.
+   Pink noise: Paul Kellet's filter (5 poles, ±0.05 dB accuracy).
+═══════════════════════════════════════════════ */
+function applyRoomTone(buffer, levelDb, character) {
+  const sr = buffer.sampleRate;
+  const levelLin = Math.pow(10, levelDb / 20);
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, sr);
+
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+
+    // Pink-noise filter state (Paul Kellet)
+    let b0f = 0, b1f = 0, b2f = 0, b3f = 0, b4f = 0, b5f = 0, b6f = 0;
+    // Brown-noise integrator state
+    let brown = 0;
+
+    for (let i = 0; i < src.length; i++) {
+      const white = Math.random() * 2 - 1;   // [-1, 1]
+      let noise;
+      if (character === 'white') {
+        noise = white;
+      } else if (character === 'brown') {
+        brown = (brown + 0.02 * white) / 1.02;
+        noise = brown * 3.5;                  // gain back to roughly unity
+      } else {
+        // pink
+        b0f = 0.99886 * b0f + white * 0.0555179;
+        b1f = 0.99332 * b1f + white * 0.0750759;
+        b2f = 0.96900 * b2f + white * 0.1538520;
+        b3f = 0.86650 * b3f + white * 0.3104856;
+        b4f = 0.55000 * b4f + white * 0.5329522;
+        b5f = -0.7616 * b5f - white * 0.0168980;
+        noise = (b0f + b1f + b2f + b3f + b4f + b5f + b6f + white * 0.5362) * 0.11;
+        b6f = white * 0.115926;
+      }
+      dst[i] = src[i] + noise * levelLin;
+    }
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
+   STAGE 2.5: AUTO BOUNDARY LEVEL MATCH
+   For each join seam:
+   1. Scan backward up to `winMs` ms; segment into voiced runs
+      separated by silence gaps → keep the LAST 2 ("last two words")
+   2. Scan forward up to `winMs` ms; take the FIRST 2 voiced runs
+   3. Measure RMS inside just those selected runs (noise floor excluded)
+   4. Target = geometric mean of both sides
+   5. Apply a smooth cosine gain ramp of `rampMs` each side of the seam
+      so each side is nudged toward the shared target level.
+   Noise floor is adaptive — computed from the quietest 15 % of frames
+   across both sides so it adjusts to each recording.
+═══════════════════════════════════════════════ */
+function applyBoundaryLevelMatch(buffer, markers, winMs, rampMs) {
+  const sr = buffer.sampleRate;
+  const channels = buffer.numberOfChannels;
+  const winSamples  = Math.round(sr * winMs  / 1000);
+  const rampSamples = Math.round(sr * rampMs / 1000);
+  const frameSize   = Math.round(sr * 0.020);                 // 20 ms frame
+  // TTS voice-over rarely has long silent gaps — 40 ms is a safer word-break
+  // threshold than 80 ms (which was missing boundaries entirely on EL output).
+  const gapFrames   = Math.max(2, Math.round(0.040 / 0.020)); // ≥40 ms silence = word break
+  const minWordFr   = Math.max(2, Math.round(0.040 / 0.020)); // ≥40 ms voiced run = a word
+  const WORDS_PER_SIDE = 2;
+
+  const ctx = getAudioCtx();
+  const out = ctx.createBuffer(channels, buffer.length, sr);
+  for (let c = 0; c < channels; c++) out.getChannelData(c).set(buffer.getChannelData(c));
+
+  const mono = mixToMono(buffer);
+  const gainEnv = new Float32Array(buffer.length).fill(1.0);
+
+  // Per-frame RMS over a sample range (reused for noise-floor + segmentation)
+  function frameRmsOver(startSample, endSample) {
+    const frames = [];
+    for (let s = startSample; s + frameSize <= endSample; s += frameSize) {
+      let sumSq = 0;
+      for (let i = s; i < s + frameSize; i++) sumSq += mono[i] * mono[i];
+      frames.push({ start: s, end: s + frameSize, rms: Math.sqrt(sumSq / frameSize) });
+    }
+    return frames;
+  }
+
+  // Adaptive noise floor: 15th percentile of frame RMS, floored at -60 dB
+  function noiseFloor(frames) {
+    if (!frames.length) return Math.pow(10, -50 / 20);
+    const sorted = frames.map(f => f.rms).sort((a, b) => a - b);
+    const p15 = sorted[Math.floor(sorted.length * 0.15)] || sorted[0];
+    return Math.max(p15 * 1.8, Math.pow(10, -60 / 20));       // 1.8× percentile with hard floor
+  }
+
+  // Group voiced frames into "words": consecutive frames above gate,
+  // allowing short within-word dips < gapFrames of silence.
+  function wordsFromFrames(frames, gate) {
+    const segs = [];
+    let cur = null, silence = 0;
+    for (const f of frames) {
+      if (f.rms > gate) {
+        if (cur && silence < gapFrames) { cur.end = f.end; cur.frames.push(f); }
+        else { cur = { start: f.start, end: f.end, frames: [f] }; segs.push(cur); }
+        silence = 0;
+      } else {
+        silence++;
+      }
+    }
+    return segs.filter(s => s.frames.length >= minWordFr);
+  }
+
+  function rmsOfSegments(segs) {
+    let sumSq = 0, n = 0;
+    for (const s of segs) for (const f of s.frames) { sumSq += f.rms * f.rms; n++; }
+    return n > 0 ? Math.sqrt(sumSq / n) : 0;
+  }
+  function fallbackRms(frames, gate) {
+    let sumSq = 0, n = 0;
+    for (const f of frames) if (f.rms > gate) { sumSq += f.rms * f.rms; n++; }
+    return n > 0 ? Math.sqrt(sumSq / n) : 0;
+  }
+
+  const db = (lin) => lin > 0 ? 20 * Math.log10(lin) : -Infinity;
+
+  markers.forEach((marker, idx) => {
+    const seamSample = Math.round(marker.time * sr);
+    const tailStart  = Math.max(0, seamSample - winSamples);
+    const headEnd    = Math.min(buffer.length, seamSample + winSamples);
+
+    const tailFrames = frameRmsOver(tailStart, seamSample);
+    const headFrames = frameRmsOver(seamSample, headEnd);
+
+    const gate = noiseFloor(tailFrames.concat(headFrames));
+    const tailWords = wordsFromFrames(tailFrames, gate);
+    const headWords = wordsFromFrames(headFrames, gate);
+
+    const lastTwoTail  = tailWords.slice(-WORDS_PER_SIDE);
+    const firstTwoHead = headWords.slice(0, WORDS_PER_SIDE);
+
+    const rms1 = lastTwoTail.length  ? rmsOfSegments(lastTwoTail)  : fallbackRms(tailFrames, gate);
+    const rms2 = firstTwoHead.length ? rmsOfSegments(firstTwoHead) : fallbackRms(headFrames, gate);
+
+    // Diagnostic log so user can verify what the detector did
+    const tag = 'seam ' + (idx + 1) + '/' + markers.length;
+    if (rms1 <= 0 || rms2 <= 0) {
+      log('  ' + tag + ': no voiced content detected either side — skipping', 'warn');
+      return;
+    }
+
+    const target = Math.sqrt(rms1 * rms2);
+    const gain1 = Math.min(4.0, Math.max(0.25, target / rms1));
+    const gain2 = Math.min(4.0, Math.max(0.25, target / rms2));
+
+    log('  ' + tag +
+        ': gate ' + db(gate).toFixed(1) + ' dB · ' +
+        'tail ' + lastTwoTail.length + ' word(s) @ ' + db(rms1).toFixed(1) + ' dB · ' +
+        'head ' + firstTwoHead.length + ' word(s) @ ' + db(rms2).toFixed(1) + ' dB · ' +
+        'target ' + db(target).toFixed(1) + ' dB · ' +
+        'gains ' + (db(gain1) >= 0 ? '+' : '') + db(gain1).toFixed(1) + '/' +
+                   (db(gain2) >= 0 ? '+' : '') + db(gain2).toFixed(1) + ' dB' +
+        (lastTwoTail.length === 0 || firstTwoHead.length === 0 ? ' (fallback window RMS)' : ''),
+        (lastTwoTail.length === 0 || firstTwoHead.length === 0) ? 'warn' : 'ok');
+
+    // Cosine ramps both sides — smoother than linear (no audible corner at seam)
+    const r1s = Math.max(0, seamSample - rampSamples);
+    for (let i = r1s; i < seamSample; i++) {
+      const t = (i - r1s) / Math.max(1, rampSamples);
+      const w = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      gainEnv[i] *= (1 - w) + w * gain1;
+    }
+    const r2e = Math.min(buffer.length, seamSample + rampSamples);
+    for (let i = seamSample; i < r2e; i++) {
+      const t = (i - seamSample) / Math.max(1, rampSamples);
+      const w = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      gainEnv[i] *= gain2 * (1 - w) + w;
+    }
+  });
+
+  for (let c = 0; c < channels; c++) {
+    const d = out.getChannelData(c);
+    for (let i = 0; i < d.length; i++) d[i] *= gainEnv[i];
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════
    MAIN PIPELINE
 ═══════════════════════════════════════════════ */
 window.runProcess = async function() {
@@ -1551,7 +2480,14 @@ window.runProcess = async function() {
 
     let clipBuffers = ready.map(c => c.buffer);
 
-    // Stage 1: TRIM SILENCE
+    // Stage 1: 80 Hz HIGH-PASS — per clip, always on.
+    // Runs FIRST so subsequent RMS / dB-threshold measurements (trim, autolvl)
+    // aren't skewed by DC offset or sub-80 Hz rumble.
+    log('Applying 80 Hz high-pass per clip (rumble / DC removal)...');
+    clipBuffers = clipBuffers.map(b => applyHighPass(b, 80));
+    await yield_();
+
+    // Stage 2: TRIM SILENCE — per clip
     if (state.features.trim) {
       const db = parseFloat($('trim-db').value);
       const pad = parseFloat($('trim-pad').value);
@@ -1563,15 +2499,49 @@ window.runProcess = async function() {
       await yield_();
     }
 
-    // Stage 2: JOIN
-    const xfadeMs = parseFloat($('xfade-ms').value);
-    log('Joining ' + clipBuffers.length + ' clip(s) with ' + xfadeMs + ' ms crossfade...');
-    let joined = joinBuffers(clipBuffers, xfadeMs);
+    // Stage 3: JOIN
+    // Two mutually-exclusive strategies: "Join with fade" OR "Auto boundary level match".
+    // If neither is enabled we fall back to a plain hard-cut concatenation.
+    const useFade = state.features.join;
+    const fadeMs         = useFade ? parseFloat($('xfade-ms').value)       : 0;
+    const fadeOutFloorDb = useFade ? parseFloat($('fade-out-floor').value) : -80;
+    const fadeInFloorDb  = useFade ? parseFloat($('fade-in-floor').value)  : -80;
+    if (useFade) {
+      log('Joining ' + clipBuffers.length + ' clip(s) with ' + fadeMs + ' ms sequential fade (out floor ' + fadeOutFloorDb + ' dB, in floor ' + fadeInFloorDb + ' dB)...');
+    } else if (state.features.autolvl) {
+      log('Joining ' + clipBuffers.length + ' clip(s) with hard cut (autolvl will smooth the seam)...');
+    } else {
+      log('Joining ' + clipBuffers.length + ' clip(s) with hard cut...');
+    }
+    let joined = joinBuffers(clipBuffers, fadeMs, fadeOutFloorDb, fadeInFloorDb);
     log('✓ Joined → ' + formatDuration(joined.duration) + ' @ ' + joined.sampleRate + ' Hz', 'ok');
-    state.rawBuffer = joined;  // keep for A/B
+    // ALWAYS clone so rawBuffer stays as the unprocessed reference
+    // even when breath/LUFS are disabled (prevents same-object A/B bug)
+    state.rawBuffer = copyAudioBuffer(joined);
+
+    // Seam positions: simple cumulative sum (no overlap in sequential mode).
+    // Region half-width shown in the waveform depends on which strategy is active:
+    //   - Join with fade → fadeMs per side (audio fades over this region)
+    //   - Auto boundary level match → rampMs per side (gain ramp over this region)
+    // Colour distinguishes the two: amber for fade, teal for level-match.
+    state.markers = [];
+    state.breathRegions = [];
+    if (clipBuffers.length > 1) {
+      const autolvlRampMs = state.features.autolvl ? parseFloat($('autolvl-ramp').value) : 0;
+      const regionSec   = state.features.autolvl ? (autolvlRampMs / 1000) : (fadeMs / 1000);
+      const regionColor = state.features.autolvl ? '#2DB89D' : '#F5C518';
+      const regionType  = state.features.autolvl ? 'autolvl' : 'join';
+      let cumTime = 0;
+      for (let i = 0; i < clipBuffers.length - 1; i++) {
+        cumTime += clipBuffers[i].duration;
+        state.markers.push({ time: cumTime, start: cumTime - regionSec, end: cumTime + regionSec, type: regionType, label: 'Join ' + (i + 1) + '→' + (i + 2), color: regionColor });
+      }
+    }
     await yield_();
 
-    // Stage 3: BREATH REMOVAL
+    // Stage 4: BREATH REMOVAL
+    // Runs BEFORE autolvl: a stray breath at a clip end would otherwise be
+    // captured by autolvl's "last 2 words" detector and corrupt the target RMS.
     if (state.features.breath) {
       const sens = parseInt($('br-sens').value, 10);
       const atten = parseFloat($('br-atten').value);
@@ -1579,6 +2549,7 @@ window.runProcess = async function() {
       progress(null, 'Analyzing spectral content');
       const result = detectAndAttenuateBreaths(joined, sens, atten);
       joined = result.buffer;
+      state.breathRegions = result.breathRegions || [];
       log('✓ Attenuated ' + result.detectedRuns + ' region(s)', result.detectedRuns > 80 ? 'warn' : 'ok');
       if (result.detectedRuns > 80) {
         log('  High detection count — recommend lowering sensitivity', 'warn');
@@ -1586,7 +2557,30 @@ window.runProcess = async function() {
       await yield_();
     }
 
-    // Stage 4: LUFS NORMALIZATION
+    // Stage 5: AUTO BOUNDARY LEVEL MATCH
+    // Measures RMS of the last 2 / first 2 voiced runs around each seam; both
+    // HPF and breath removal have run by now, so the measurement is clean.
+    if (state.features.autolvl && state.markers.length > 0) {
+      const winMs  = parseFloat($('autolvl-win').value);
+      const rampMs = parseFloat($('autolvl-ramp').value);
+      log('Auto boundary level match (scan ' + winMs + ' ms / side, ramp ' + rampMs + ' ms)...');
+      joined = applyBoundaryLevelMatch(joined, state.markers, winMs, rampMs);
+      log('✓ Boundary levels matched', 'ok');
+      await yield_();
+    }
+
+    // Stage 6: DE-ESSER
+    if (state.features.deess) {
+      const freq   = parseFloat($('deess-freq').value);
+      const thr    = parseFloat($('deess-thresh').value);
+      const amount = parseFloat($('deess-amount').value);
+      log('De-essing (centre ' + freq + ' Hz, threshold ' + thr + ' dB, max reduction ' + amount + ' dB)...');
+      joined = applyDeEsser(joined, freq, thr, amount);
+      log('✓ Sibilance attenuated', 'ok');
+      await yield_();
+    }
+
+    // Stage 7: LUFS NORMALIZATION
     let finalBuf = joined;
     let metrics = { lufs: null, truePeak: null };
     if (state.features.lufs) {
@@ -1614,6 +2608,19 @@ window.runProcess = async function() {
       const tpOk = afterTp <= targetTp + 0.01;
       log('  Final integrated: ' + after.lufs.toFixed(2) + ' LUFS (' + (lufsOk ? '✓ within ±' + tolerance : '⚠ outside tolerance') + ')', lufsOk ? 'ok' : 'warn');
       log('  Final true peak: ' + afterTp.toFixed(2) + ' dBTP (' + (tpOk ? '✓' : '⚠') + ')', tpOk ? 'ok' : 'warn');
+      log('✓ EBU R128 NORMALIZATION APPLIED: ' + (gainDb >= 0 ? '+' : '') + gainDb.toFixed(2) + ' dB → ' + after.lufs.toFixed(2) + ' LUFS (target ' + targetLufs.toFixed(1) + ')', 'ok');
+    } else {
+      log('EBU R128 loudness disabled — skipping normalization.');
+    }
+
+    // Stage 8: ROOM-TONE BED (after LUFS so bed level is absolute, not limiter-squashed)
+    if (state.features.roomtone) {
+      const level = parseFloat($('rt-level').value);
+      const character = $('rt-char').value;
+      log('Adding ' + character + ' room-tone bed at ' + level + ' dB...');
+      finalBuf = applyRoomTone(finalBuf, level, character);
+      log('✓ Room-tone bed laid', 'ok');
+      await yield_();
     }
 
     state.processedBuffer = finalBuf;
@@ -1624,7 +2631,7 @@ window.runProcess = async function() {
     // Render waveform + enable preview
     renderPlayerWaveform();
     $('player-wrap').classList.add('active');
-    setAB('processed');
+    setAB('processed');  // triggers legend update + mode reset
 
     // Update stats
     $('stat-duration').textContent = formatDuration(finalBuf.duration);
@@ -1632,6 +2639,10 @@ window.runProcess = async function() {
     $('stat-tp').textContent = metrics.truePeak != null ? metrics.truePeak.toFixed(1) : 'n/a';
     $('stat-sr').textContent = (finalBuf.sampleRate / 1000).toFixed(1) + 'k';
     $('stats-grid').style.display = 'grid';
+
+    // Scroll results into view so stats + waveform are immediately visible
+    const stepEl = $('step3');
+    if (stepEl && stepEl.scrollIntoView) stepEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     // Unlock export
     $('step4').removeAttribute('data-state');
@@ -1651,12 +2662,479 @@ window.runProcess = async function() {
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 /* ═══════════════════════════════════════════════
-   PLAYER (A/B toggle)
+   PLAYER — ZOOM / SCROLL / MULTI-LAYER WAVEFORM
 ═══════════════════════════════════════════════ */
-function renderPlayerWaveform() {
-  const canvas = $('wf-canvas');
-  drawWaveform(canvas, state.processedBuffer, 'var(--tealD)');
+
+/* Returns the visible time window for the current zoom/scroll state */
+function viewRange(buffer) {
+  if (!buffer) return { start: 0, end: 1, dur: 1 };
+  const total = buffer.duration;
+  const viewDur = total / state.zoom;
+  const maxStart = Math.max(0, total - viewDur);
+  const start = Math.max(0, Math.min(state.scrollSec, maxStart));
+  return { start, end: start + viewDur, dur: viewDur };
 }
+/* Alias: viewRange for an explicit buffer (same logic, just named clearly) */
+function viewRange_buf(buf) { return viewRange(buf); }
+
+/* Master render — redraws all layers */
+function renderPlayerWaveform() {
+  const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  if (!buf) return;
+  const vr = viewRange(buf);
+  renderMainCanvas(buf, vr);
+  renderBreathLane(vr);
+  renderScrollbar(buf);
+  renderMarkerList();
+  $('zoom-label').textContent = state.zoom === 1 ? '1×' : (Number.isInteger(state.zoom) ? state.zoom + '×' : state.zoom.toFixed(1) + '×');
+}
+
+/* Draw raw ghost + processed waveform + join rects on main canvas.
+   Both layers are ALWAYS rendered when both buffers exist — but the
+   one matching `currentMode` is emphasised (opaque) and the other is
+   faded, so the A/B toggle has a clear visual + audible pairing.
+   Each buffer is normalised to its own peak so LUFS gain doesn't
+   squash one layer inside the other. */
+function renderMainCanvas(buf, vr) {
+  const canvas = $('wf-canvas');
+  const parent = $('player-wf');
+  const dpr = window.devicePixelRatio || 1;
+  const w = parent.offsetWidth;
+  const h = parent.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const hasBoth = state.processedBuffer && state.rawBuffer;
+  const mode = state.currentMode;
+
+  if (hasBoth) {
+    const rawPeak  = peakInView(state.rawBuffer,       viewRange_buf(state.rawBuffer));
+    const procPeak = peakInView(state.processedBuffer, viewRange_buf(state.processedBuffer));
+
+    // Raw stays FULL dark-red regardless of A/B selection — user requested it
+    // always be visible. Only the processed (teal) layer dims when RAW is
+    // selected, so the active layer is still unambiguous.
+    const rawAlpha  = 0.82;
+    const procAlpha = mode === 'processed' ? 0.95 : 0.30;
+
+    // Layer 1: Raw — outer envelope (filled bars, 96 % height)
+    drawWaveformSegment(ctx, state.rawBuffer, w, h, '#E63946', rawAlpha,
+      viewRange_buf(state.rawBuffer), true, 0.96, rawPeak);
+
+    // Layer 2: Processed — inner overlay (teal line, 78 % height)
+    drawWaveformSegment(ctx, state.processedBuffer, w, h, '#1E8A75', procAlpha,
+      viewRange_buf(state.processedBuffer), false, 0.78, procPeak);
+  } else {
+    const color = mode === 'processed' ? '#1E8A75' : '#E63946';
+    const onePeak = peakInView(buf, vr);
+    drawWaveformSegment(ctx, buf, w, h, color, 1.0, vr, false, 0.92, onePeak);
+  }
+
+  drawJoinRects(ctx, w, h, vr);
+
+  // Small "NOW: RAW / PROCESSED" badge so the toggle is unambiguous
+  if (hasBoth) {
+    const label = mode === 'raw' ? 'NOW: RAW' : 'NOW: PROCESSED';
+    ctx.save();
+    ctx.font = '700 9px "Barlow Condensed", sans-serif';
+    ctx.textBaseline = 'top';
+    const pad = 5, tw = ctx.measureText(label).width;
+    ctx.fillStyle = mode === 'raw' ? 'rgba(230,57,70,0.92)' : 'rgba(30,138,117,0.9)';
+    ctx.fillRect(w - tw - pad * 2 - 6, 6, tw + pad * 2, 14);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, w - tw - pad - 6, 9);
+    ctx.restore();
+  }
+}
+
+/* Fast peak scan within the current view range */
+function peakInView(buffer, vr) {
+  const data = buffer.getChannelData(0);
+  const sr = buffer.sampleRate;
+  const s0 = Math.floor(vr.start * sr);
+  const s1 = Math.min(data.length, Math.ceil(vr.end * sr));
+  // Sample every ~512 frames for speed — good enough for normalization
+  const step = Math.max(1, Math.floor((s1 - s0) / 2048));
+  let peak = 1e-9;
+  for (let i = s0; i < s1; i += step) {
+    const v = Math.abs(data[i]);
+    if (v > peak) peak = v;
+  }
+  return peak;
+}
+
+/* Draw a single waveform buffer into ctx, respecting the view range.
+   heightScale: visual height multiplier (0..1, where 1.0 = full half-canvas).
+   peak: peak sample magnitude in the current view, used to normalise the
+   waveform so that raw and processed layers don't collapse into each other
+   after LUFS gain changes. Pass 0 / undefined to skip normalisation. */
+function drawWaveformSegment(ctx, buffer, w, h, color, alpha, vr, filled, heightScale, peak) {
+  const sr = buffer.sampleRate;
+  const data = buffer.getChannelData(0);
+  const vStartSample = Math.floor(vr.start * sr);
+  const vEndSample   = Math.min(data.length, Math.ceil(vr.end * sr));
+  const samplesInView = Math.max(1, vEndSample - vStartSample);
+  const samplesPerPx  = samplesInView / w;
+
+  const hScale   = heightScale != null ? heightScale : 0.92;
+  // Peak-normalise but clamp so very quiet signals don't get amplified to insanity
+  const normPeak = (peak && peak > 0.05) ? peak : 1.0;
+  const midY     = h / 2;
+  const yScale   = midY * hScale / normPeak;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = filled ? 2 : 1;
+  ctx.beginPath();
+
+  if (filled) {
+    // Filled bars — more visible as a background reference
+    for (let x = 0; x < w; x++) {
+      const sStart = vStartSample + Math.floor(x * samplesPerPx);
+      const sEnd   = Math.min(data.length, sStart + Math.max(1, Math.ceil(samplesPerPx)));
+      let min = 0, max = 0;
+      for (let i = sStart; i < sEnd; i++) {
+        const v = data[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      const yTop    = midY + min * yScale;
+      const yBottom = midY + max * yScale;
+      ctx.fillRect(x, Math.min(yTop, yBottom), 1, Math.max(1, Math.abs(yBottom - yTop)));
+    }
+  } else {
+    for (let x = 0; x < w; x++) {
+      const sStart = vStartSample + Math.floor(x * samplesPerPx);
+      const sEnd   = Math.min(data.length, sStart + Math.max(1, Math.ceil(samplesPerPx)));
+      let min = 0, max = 0;
+      for (let i = sStart; i < sEnd; i++) {
+        const v = data[i];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      ctx.moveTo(x + 0.5, midY + min * yScale);
+      ctx.lineTo(x + 0.5, midY + max * yScale);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* Draw seam-region rectangles for each join marker. Colour comes from m.color
+   (amber for join-with-fade, teal for auto boundary level match). */
+function drawJoinRects(ctx, w, h, vr) {
+  // Hex "#RRGGBB" → "r,g,b"
+  const hexToRgb = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+  };
+
+  for (const m of state.markers) {
+    const x1 = Math.round(((m.start - vr.start) / vr.dur) * w);
+    const x2 = Math.round(((m.end   - vr.start) / vr.dur) * w);
+    if (x2 < 0 || x1 > w) continue;
+    const cx1 = Math.max(0, x1);
+    const cx2 = Math.min(w, x2);
+    const rw  = Math.max(2, cx2 - cx1);
+
+    const rgb  = hexToRgb(m.color || '#F5C518');
+    const inkText = '#2A2520';
+
+    // Fill
+    ctx.fillStyle = 'rgba(' + rgb + ',0.20)';
+    ctx.fillRect(cx1, 0, rw, h);
+    // Border
+    ctx.strokeStyle = m.color || '#F5C518';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx1 + 0.5, 0.5, rw - 1, h - 1);
+    // Label pill
+    ctx.font = '600 8px DM Mono, monospace';
+    const label = m.label.toUpperCase();
+    const tw = ctx.measureText(label).width;
+    const lx = rw >= tw + 10 ? cx1 + rw / 2 - tw / 2 : cx2 + 4;
+    if (lx + tw + 6 <= w) {
+      ctx.fillStyle = 'rgba(' + rgb + ',0.88)';
+      ctx.fillRect(lx - 2, 2, tw + 4, 12);
+      // Use white text on teal (better contrast), ink on amber
+      ctx.fillStyle = m.type === 'autolvl' ? '#FFFFFF' : inkText;
+      ctx.fillText(label, lx, 11);
+    }
+  }
+}
+
+/* Breath lane — separate parallel canvas axis below main waveform */
+function renderBreathLane(vr) {
+  const lane = $('breath-lane');
+  if (!lane) return;
+
+  const showLane = state.breathRegions.length > 0 && state.currentMode === 'processed';
+  lane.style.display = showLane ? 'block' : 'none';
+  if (!showLane) return;
+
+  const canvas = $('breath-canvas');
+  const wrap   = $('breath-canvas-wrap');
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.offsetWidth;
+  const h = wrap.offsetHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const tx = t => ((t - vr.start) / vr.dur) * w;
+
+  // Subtle timeline ticks every second
+  ctx.strokeStyle = 'rgba(42,37,32,0.08)';
+  ctx.lineWidth = 1;
+  const buf = state.processedBuffer;
+  const step = vr.dur > 60 ? 10 : vr.dur > 20 ? 5 : vr.dur > 5 ? 1 : 0.5;
+  for (let t = Math.ceil(vr.start / step) * step; t <= vr.end; t += step) {
+    const x = Math.round(tx(t)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+
+  // Breath region blocks
+  for (const r of state.breathRegions) {
+    const x1 = Math.max(0,  tx(r.start));
+    const x2 = Math.min(w, tx(r.end));
+    if (x2 <= 0 || x1 >= w) continue;
+    const rw = Math.max(2, x2 - x1);
+    ctx.fillStyle = 'rgba(230,57,70,0.72)';
+    ctx.fillRect(x1, 3, rw, h - 6);
+  }
+}
+
+/* Teal scrollbar thumb — only visible when zoom > 1 */
+function renderScrollbar(buf) {
+  const track = $('wf-scroll-track');
+  if (!track) return;
+  if (state.zoom <= 1) { track.classList.remove('visible'); return; }
+  track.classList.add('visible');
+  const thumb = $('wf-scroll-thumb');
+  const total = buf ? buf.duration : 1;
+  const viewDur = total / state.zoom;
+  const thumbW  = Math.max(20, (viewDur / total) * 100);
+  const thumbL  = (state.scrollSec / total) * 100;
+  thumb.style.width = thumbW + '%';
+  thumb.style.left  = thumbL + '%';
+}
+
+/* Marker chip strip */
+function renderMarkerList() {
+  const el = $('marker-list');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+  if (!buf) return;
+
+  const makeChip = (label, color, bg, jumpTime, title) => {
+    const chip = document.createElement('button');
+    chip.className = 'marker-chip';
+    chip.style.cssText = 'border-color:' + color + ';color:' + color + ';background:' + bg + ';';
+    chip.title = title;
+    chip.textContent = label;
+    chip.onclick = () => {
+      const t = Math.max(0, jumpTime);
+      // Scroll view to show the jump target
+      const vr = viewRange(buf);
+      if (t < vr.start || t > vr.end) {
+        const viewDur = buf.duration / state.zoom;
+        state.scrollSec = Math.max(0, Math.min(t - viewDur * 0.15, buf.duration - viewDur));
+      }
+      const wasPlaying = state.playing;
+      stopPlayback();
+      state.playOffset = t;
+      renderPlayerWaveform();
+      updatePlayhead();
+      if (wasPlaying) startPlayback();
+    };
+    return chip;
+  };
+
+  for (const m of state.markers) {
+    el.appendChild(makeChip(
+      '⇌ ' + m.label + ' · ' + formatDuration(m.time),
+      '#C8950A', 'rgba(245,197,24,0.12)',
+      Math.max(0, m.start - 0.05),
+      'Jump to fade boundary at ' + formatDuration(m.start) + ' → ' + formatDuration(m.end)
+    ));
+  }
+
+  if (state.currentMode === 'processed' && state.breathRegions.length > 0) {
+    const MAX = 12;
+    state.breathRegions.slice(0, MAX).forEach(r => {
+      el.appendChild(makeChip(
+        '~ ' + formatDuration(r.start),
+        '#E63946', 'rgba(230,57,70,0.10)',
+        Math.max(0, r.start - 0.05),
+        'Breath region ' + formatDuration(r.start) + ' → ' + formatDuration(r.end)
+      ));
+    });
+    if (state.breathRegions.length > MAX) {
+      const extra = document.createElement('span');
+      extra.className = 'marker-chip marker-chip-info';
+      extra.textContent = '+' + (state.breathRegions.length - MAX) + ' more';
+      el.appendChild(extra);
+    }
+  }
+
+  el.style.display = el.children.length > 0 ? 'flex' : 'none';
+  updateJoinNav();
+}
+
+/* ── Jump to prev/next join point ──────────────────────────────── */
+window.jumpToJoin = function(dir) {
+  if (state.markers.length === 0) return;
+  const buf = state.processedBuffer || state.rawBuffer;
+  if (!buf) return;
+
+  // Current playhead time
+  const ctx = state.audioCtx;
+  let t = state.playOffset;
+  if (state.playing && ctx) t += ctx.currentTime - state.playStart;
+
+  // Find prev or next marker relative to current position
+  const times = state.markers.map(m => m.time);
+  let target = null;
+  const NUDGE = 0.15;  // seconds before marker to start listening
+
+  if (dir > 0) {
+    // Next: first marker strictly after current time
+    target = times.find(mt => mt > t + NUDGE);
+  } else {
+    // Prev: last marker before current time
+    const before = times.filter(mt => mt < t - NUDGE);
+    target = before.length > 0 ? before[before.length - 1] : times[0];
+  }
+  if (target == null) target = dir > 0 ? times[times.length - 1] : times[0];
+
+  // Position the view so the marker is visible with 2 s of pre-roll
+  const preRoll = 2.0;
+  const viewDur = buf.duration / state.zoom;
+  const newScroll = Math.max(0, Math.min(target - preRoll, buf.duration - viewDur));
+  state.scrollSec = newScroll;
+
+  const wasPlaying = state.playing;
+  stopPlayback();
+  state.playOffset = Math.max(0, target - preRoll);
+  renderPlayerWaveform();
+  updatePlayhead();
+  updateJoinNav();
+  if (wasPlaying) startPlayback();
+};
+
+function updateJoinNav() {
+  const nav = $('join-nav');
+  if (!nav) return;
+  const hasMarkers = state.markers.length > 0;
+  nav.style.display = hasMarkers ? 'inline-flex' : 'none';
+  if (!hasMarkers) return;
+
+  // Show which join is currently nearest
+  const buf = state.processedBuffer || state.rawBuffer;
+  const ctx = state.audioCtx;
+  let t = state.playOffset;
+  if (state.playing && ctx) t += ctx.currentTime - state.playStart;
+
+  let nearest = 0;
+  let minD = Infinity;
+  state.markers.forEach((m, i) => {
+    const d = Math.abs(m.time - t);
+    if (d < minD) { minD = d; nearest = i; }
+  });
+  $('join-nav-counter').textContent = (nearest + 1) + '/' + state.markers.length;
+}
+const ZOOM_STEPS = [1, 1.5, 2, 3, 5, 8, 12, 20, 40];
+window.zoomStep = function(dir) {
+  const cur = state.zoom;
+  let idx = ZOOM_STEPS.findIndex(z => z >= cur - 0.01);
+  if (idx < 0) idx = ZOOM_STEPS.length - 1;
+  idx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, idx + dir));
+  applyZoom(ZOOM_STEPS[idx]);
+};
+window.zoomReset = function() { applyZoom(1); };
+function applyZoom(z) {
+  const buf = state.processedBuffer || state.rawBuffer;
+  if (!buf) { state.zoom = z; return; }
+  const prevVr = viewRange(buf);
+  const centerTime = prevVr.start + prevVr.dur / 2;  // keep center stable
+  state.zoom = z;
+  const newViewDur = buf.duration / z;
+  state.scrollSec = Math.max(0, Math.min(centerTime - newViewDur / 2, buf.duration - newViewDur));
+  renderPlayerWaveform();
+}
+
+/* ── Scrollbar drag ───────────────────────────────────────────── */
+(function() {
+  let dragging = false, startX = 0, startScroll = 0;
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('#wf-scroll-thumb')) return;
+    dragging = true; startX = e.clientX;
+    const buf = state.processedBuffer || state.rawBuffer;
+    startScroll = state.scrollSec;
+    const track = $('wf-scroll-track');
+    const total = buf ? buf.duration : 1;
+    const viewDur = total / state.zoom;
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', () => { dragging = false; document.removeEventListener('mousemove', onDrag); }, { once: true });
+    function onDrag(me) {
+      const track = $('wf-scroll-track');
+      if (!track) return;
+      const dx = me.clientX - startX;
+      const totalDur = (state.processedBuffer || state.rawBuffer).duration;
+      const pixelsPerSec = track.offsetWidth / totalDur;
+      state.scrollSec = Math.max(0, Math.min(startScroll + dx / pixelsPerSec, totalDur - totalDur / state.zoom));
+      renderPlayerWaveform();
+    }
+  });
+})();
+
+/* ── Waveform drag-to-pan ─────────────────────────────────────── */
+(function() {
+  let dragging = false, startX = 0, startScroll = 0;
+  const wf = () => $('player-wf');
+  document.addEventListener('mousedown', e => {
+    if (state.zoom <= 1) return;
+    if (!e.target.closest('#player-wf')) return;
+    const el = wf(); if (!el) return;
+    dragging = true; startX = e.clientX; startScroll = state.scrollSec;
+    el.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', () => {
+      dragging = false; if (wf()) wf().style.cursor = 'crosshair';
+      document.removeEventListener('mousemove', onDrag);
+    }, { once: true });
+    function onDrag(me) {
+      const buf = state.processedBuffer || state.rawBuffer; if (!buf) return;
+      const el = wf(); if (!el) return;
+      const dx = me.clientX - startX;
+      const secPerPx = (buf.duration / state.zoom) / el.offsetWidth;
+      state.scrollSec = Math.max(0, Math.min(startScroll - dx * secPerPx, buf.duration - buf.duration / state.zoom));
+      renderPlayerWaveform();
+    }
+  });
+})();
+
+/* ── Mouse-wheel zoom ─────────────────────────────────────────── */
+document.addEventListener('wheel', e => {
+  const el = $('player-wf');
+  if (!el || !e.target.closest('#player-wf')) return;
+  e.preventDefault();
+  zoomStep(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
 
 window.setAB = function(mode) {
   const wasPlaying = state.playing;
@@ -1665,9 +3143,15 @@ window.setAB = function(mode) {
   document.querySelectorAll('.player-ab button').forEach(b => {
     b.classList.toggle('active', b.dataset.ab === mode);
   });
-  const canvas = $('wf-canvas');
-  const buf = mode === 'processed' ? state.processedBuffer : state.rawBuffer;
-  drawWaveform(canvas, buf, mode === 'processed' ? 'var(--tealD)' : 'var(--grayL)');
+  // Legend: show both raw+processed items only when both buffers exist
+  const hasBoth = state.processedBuffer && state.rawBuffer;
+  const rawLeg  = $('legend-raw');
+  const procLeg = $('legend-proc');
+  const abHint  = $('legend-ab-hint');
+  if (rawLeg)  rawLeg.style.display  = hasBoth ? 'flex' : 'none';
+  if (procLeg) procLeg.style.display = hasBoth ? 'flex' : 'none';
+  if (abHint)  abHint.style.display  = hasBoth ? 'inline' : 'none';
+  renderPlayerWaveform();
   if (wasPlaying) togglePlay();
 };
 
@@ -1703,7 +3187,9 @@ function stopPlayback() {
   if (state.currentSource) {
     try { state.currentSource.stop(); } catch (e) {}
     const elapsed = (state.audioCtx ? state.audioCtx.currentTime : 0) - state.playStart;
-    state.playOffset = Math.min(state.playOffset + elapsed, (state.processedBuffer ? state.processedBuffer.duration : 0));
+    const activeBuf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
+    const maxDur = activeBuf ? activeBuf.duration : (state.processedBuffer ? state.processedBuffer.duration : 0);
+    state.playOffset = Math.min(state.playOffset + elapsed, maxDur);
   }
   state.currentSource = null;
   state.playing = false;
@@ -1726,20 +3212,38 @@ function updatePlayhead() {
   let t = state.playOffset;
   if (state.playing && ctx) t += ctx.currentTime - state.playStart;
   t = Math.min(t, buf.duration);
+
+  // Auto-scroll to keep playhead in view during playback
+  if (state.playing && state.zoom > 1) {
+    const vr = viewRange(buf);
+    const margin = vr.dur * 0.1;
+    if (t > vr.end - margin || t < vr.start) {
+      state.scrollSec = Math.max(0, Math.min(t - margin, buf.duration - vr.dur));
+      renderPlayerWaveform();
+    }
+  }
+
+  const vr = viewRange(buf);
   const pctW = $('player-wf').offsetWidth;
-  $('playhead').style.left = (t / buf.duration) * pctW + 'px';
+  const xPos = ((t - vr.start) / vr.dur) * pctW;
+  $('playhead').style.left = xPos + 'px';
   $('player-time').textContent = formatDuration(t) + ' / ' + formatDuration(buf.duration);
 }
 
-// Click to scrub
+// Click to scrub (only if not a drag-pan gesture)
+let _wfClickMoved = false;
+document.addEventListener('mousedown', e => { if (e.target.closest('#player-wf')) _wfClickMoved = false; });
+document.addEventListener('mousemove', e => { if (e.buttons && e.target.closest && e.target.closest && document.querySelector('#player-wf:hover')) _wfClickMoved = true; });
 document.addEventListener('click', e => {
   const wf = $('player-wf');
   if (!wf || !e.target.closest('#player-wf')) return;
+  if (_wfClickMoved && state.zoom > 1) return;  // was a pan drag, not a scrub click
   const buf = state.currentMode === 'processed' ? state.processedBuffer : state.rawBuffer;
   if (!buf) return;
   const rect = wf.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const t = Math.max(0, Math.min(buf.duration, (x / rect.width) * buf.duration));
+  const vr = viewRange(buf);
+  const t = Math.max(0, Math.min(buf.duration, vr.start + (x / rect.width) * vr.dur));
   const wasPlaying = state.playing;
   stopPlayback();
   state.playOffset = t;
@@ -1898,5 +3402,6 @@ updateProcessButton();
 
 </script>
 
-</body>
-</html>
+
+
+</body></html>
